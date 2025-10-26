@@ -1,0 +1,10 @@
+{
+  "short_name": "Image Upload",
+  "name": "Image Upload App",
+  "description": "Upload and view images with automatic compression",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#ec4899",
+  "background_color": "#ffeef8",
+  "orientation": "portrait-primary"
+}
