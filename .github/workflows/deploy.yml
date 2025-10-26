@@ -3,6 +3,8 @@ name: Deploy to AWS Lightsail
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'image-upload-app/**'
   workflow_dispatch:
 
 jobs:
@@ -17,7 +19,9 @@ jobs:
       uses: docker/setup-buildx-action@v2
 
     - name: Build Docker image
-      run: docker build -t image-upload-app .
+      run: |
+        cd image-upload-app
+        docker build -t image-upload-app .
 
     - name: Save Docker image
       run: docker save image-upload-app | gzip > image-upload-app.tar.gz
