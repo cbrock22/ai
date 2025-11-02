@@ -30,9 +30,7 @@ services:
 
   # Backend API + Frontend (Production)
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/cbrock22/image-upload-app:latest
     container_name: image-upload-backend-prod
     restart: always
     ports:

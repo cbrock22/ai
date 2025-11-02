@@ -15,6 +15,28 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./image-upload-app
+        file: ./image-upload-app/Dockerfile
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository_owner }}/image-upload-app:latest
+          ghcr.io/${{ github.repository_owner }}/image-upload-app:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
     - name: Create .env file
       run: |
         cd image-upload-app
@@ -59,21 +81,26 @@ jobs:
       run: |
         ssh -i ~/.ssh/lightsail_key \
           -o StrictHostKeyChecking=no \
-          -o ServerAliveInterval=60 \
-          -o ServerAliveCountMax=10 \
+          -o ServerAliveInterval=30 \
           ${{ secrets.LIGHTSAIL_USERNAME }}@${{ secrets.LIGHTSAIL_HOST }} << 'ENDSSH'
           cd /home/${{ secrets.LIGHTSAIL_USERNAME }}/image-upload-app
 
-          # Stop and remove old containers
+          # Log in to GitHub Container Registry
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          # Stop old containers
           docker compose -f docker-compose.prod.yml down || true
 
-          # Pull latest images and rebuild
-          docker compose -f docker-compose.prod.yml pull || true
-          docker compose -f docker-compose.prod.yml up -d --build
+          # Pull latest image (much faster than building!)
+          docker compose -f docker-compose.prod.yml pull
+
+          # Start containers
+          docker compose -f docker-compose.prod.yml up -d
 
           # Clean up old images
           docker image prune -af
 
           # Show status
+          echo "Deployment complete! Container status:"
           docker compose -f docker-compose.prod.yml ps
         ENDSSH
