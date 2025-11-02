@@ -45,10 +45,10 @@ jobs:
     - name: Setup SSH key
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail_key
+        echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" | base64 -d > ~/.ssh/lightsail_key
         chmod 600 ~/.ssh/lightsail_key
         # Validate key
-        ssh-keygen -y -f ~/.ssh/lightsail_key > /dev/null || (echo "Key validation failed" && cat ~/.ssh/lightsail_key && exit 1)
+        ssh-keygen -y -f ~/.ssh/lightsail_key > /dev/null || (echo "Key validation failed" && exit 1)
         ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts
 
     - name: Copy files to Lightsail
