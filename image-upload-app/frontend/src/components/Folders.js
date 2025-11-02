@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import '../common.css';
 import './Folders.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_URL = process.env.REACT_APP_API_URL || '';
 
 const Folders = () => {
   const navigate = useNavigate();
