@@ -3,10 +3,29 @@ node_modules/
 npm-debug.log*
 package-lock.json
 
-# Environment variables
+# Environment variables (contains passwords/secrets)
 .env
 .env.local
 .env.production
+.env.*.local
+backend/.env
+backend/.env.local
+frontend/.env
+frontend/.env.local
+**/.env
+**/.env.local
+
+# AWS credentials
+.aws/
+**/credentials
+**/config
+
+# SSH keys
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+*.ppk
 
 # Build output
 frontend/build/
@@ -28,6 +47,11 @@ Thumbs.db
 
 # Docker
 *.tar.gz
+*.tar
+
+# Database backups
+backups/
+*.gz
 
 # Logs
 *.log
@@ -38,3 +62,14 @@ coverage/
 
 # Misc
 .cache
+
+# Sensitive files
+*secret*
+*password*
+*credential*
+!**/README.md
+!**/DEPLOY*.md
+!**/*.example
+!**/ADMIN_CREDENTIALS.md
+!**/LOGIN_FIX.md
+!**/GITHUB_SECRETS_SETUP.md

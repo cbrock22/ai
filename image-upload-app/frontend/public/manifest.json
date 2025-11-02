@@ -1,7 +1,14 @@
 {
-  "short_name": "Image Upload",
-  "name": "Image Upload App",
-  "description": "Upload and view images with automatic compression",
+  "short_name": "Image Gallery",
+  "name": "Image Upload Gallery App",
+  "description": "Upload and view images with automatic compression and cloud storage",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#ec4899",

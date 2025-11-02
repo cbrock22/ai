@@ -4,7 +4,17 @@
       "Bash(dir:*)",
       "Bash(npm install:*)",
       "Bash(del install-tunnel.bat check-tunnel.bat)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npx tailwindcss init)",
+      "Bash(chmod:*)",
+      "Bash(aws configure:*)",
+      "Bash(aws s3 ls:*)",
+      "Read(//c/Users/coleb/.aws/**)",
+      "Bash(docker-compose:*)",
+      "Bash(start.bat)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

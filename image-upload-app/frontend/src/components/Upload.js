@@ -1,12 +1,52 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import '../common.css';
 import './Upload.css';
 
 const Upload = () => {
+  const { token, apiUrl } = useAuth();
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
+  const [folders, setFolders] = useState([]);
+  const [selectedFolder, setSelectedFolder] = useState('');
+  const [loadingFolders, setLoadingFolders] = useState(true);
+
+  // Fetch folders user has write access to
+  useEffect(() => {
+    const fetchFolders = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/api/folders`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Filter folders where user has write or admin access
+          const writableFolders = data.filter(folder => {
+            // If user is owner, they have write access
+            // If folder has permissions array, check for write/admin access
+            return folder.canWrite || folder.canDelete;
+          });
+          setFolders(writableFolders);
+          if (writableFolders.length > 0) {
+            setSelectedFolder(writableFolders[0]._id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch folders:', error);
+        setMessage('Failed to load folders. Please try refreshing the page.');
+      } finally {
+        setLoadingFolders(false);
+      }
+    };
+
+    fetchFolders();
+  }, [token, apiUrl]);
 
   const createPreview = useCallback((file) => {
     const reader = new FileReader();
@@ -37,15 +77,25 @@ const Upload = () => {
       return;
     }
 
+    if (!selectedFolder) {
+      setMessage('Please select a folder');
+      return;
+    }
+
     setUploading(true);
     setMessage('');
 
     const formData = new FormData();
     formData.append('image', selectedFile);
+    formData.append('folderId', selectedFolder);
 
     try {
-      const response = await fetch('/api/upload', {
+      const response = await fetch(`${apiUrl}/api/images`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include',
         body: formData,
       });
 
@@ -74,10 +124,48 @@ const Upload = () => {
     document.getElementById('file-input').value = '';
   };
 
+  if (loadingFolders) {
+    return (
+      <div className="upload">
+        <div className="upload-card soft-card">
+          <p>Loading folders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (folders.length === 0) {
+    return (
+      <div className="upload">
+        <div className="upload-card soft-card">
+          <h2>No Folders Available</h2>
+          <p>You need to create a folder first or get write permission to an existing folder.</p>
+          <p>Visit the Folders page to create one.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="upload">
       <div className="upload-card soft-card">
         <h2>Upload Your Images</h2>
+
+        <div className="folder-select">
+          <label htmlFor="folder-select">Upload to folder:</label>
+          <select
+            id="folder-select"
+            value={selectedFolder}
+            onChange={(e) => setSelectedFolder(e.target.value)}
+            className="folder-dropdown"
+          >
+            {folders.map(folder => (
+              <option key={folder._id} value={folder._id}>
+                {folder.name} {folder.isPublic ? '(Public)' : '(Private)'}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div
           className="drop-zone soft-zone"

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Favicon Preview</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .preview-container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      margin: 0 0 30px 0;
+      background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #06b6d4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .sizes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .size-preview {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      border: 2px solid #e9ecef;
+    }
+    .size-preview img {
+      image-rendering: crisp-edges;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-optimize-contrast;
+    }
+    .size-label {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #6c757d;
+      font-weight: 600;
+    }
+    .tab-preview {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 30px;
+      border: 2px solid #e9ecef;
+    }
+    .browser-tab {
+      background: white;
+      border-radius: 8px 8px 0 0;
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      font-size: 14px;
+      color: #333;
+    }
+    .instructions {
+      background: #e7f3ff;
+      border-left: 4px solid #0066cc;
+      padding: 20px;
+      margin-top: 30px;
+      border-radius: 8px;
+      color: #003d7a;
+    }
+    .instructions h3 {
+      margin-top: 0;
+      color: #003d7a;
+    }
+    code {
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-container">
+    <h1>🎨 Favicon Preview</h1>
+
+    <p style="color: #6c757d; margin-bottom: 30px;">
+      Your image gallery app favicon with gradient design
+    </p>
+
+    <div class="sizes">
+      <div class="size-preview">
+        <img src="favicon.svg" width="64" height="64" alt="64x64">
+        <div class="size-label">64×64 (Large)</div>
+      </div>
+
+      <div class="size-preview">
+        <img src="favicon.svg" width="32" height="32" alt="32x32">
+        <div class="size-label">32×32 (Standard)</div>
+      </div>
+
+      <div class="size-preview">
+        <img src="favicon.svg" width="16" height="16" alt="16x16">
+        <div class="size-label">16×16 (Small)</div>
+      </div>
+    </div>
+
+    <div class="tab-preview">
+      <h3 style="color: #333; margin-top: 0;">Browser Tab Preview</h3>
+      <div class="browser-tab">
+        <img src="favicon.svg" width="16" height="16" alt="favicon">
+        Image Upload App
+      </div>
+    </div>
+
+    <div class="instructions">
+      <h3>✨ Favicon Features</h3>
+      <ul style="line-height: 1.8;">
+        <li><strong>SVG format</strong> - Scales perfectly at any size</li>
+        <li><strong>Gradient colors</strong> - Matches your app theme (pink → purple → cyan)</li>
+        <li><strong>Image gallery icon</strong> - Two overlapping images with landscape</li>
+        <li><strong>Modern design</strong> - Clean, minimal aesthetic</li>
+      </ul>
+
+      <h3>📍 Files Added</h3>
+      <ul style="line-height: 1.8;">
+        <li><code>frontend/public/favicon.svg</code> - The favicon file</li>
+        <li><code>frontend/public/index.html</code> - Updated with favicon links</li>
+        <li><code>frontend/public/manifest.json</code> - Updated with app icons</li>
+      </ul>
+
+      <h3>🚀 How to Test</h3>
+      <ol style="line-height: 1.8;">
+        <li>Start your app: <code>start.bat</code></li>
+        <li>Open: <code>http://localhost:3000</code></li>
+        <li>Look at the browser tab - you'll see the new icon!</li>
+        <li>Works in Chrome, Firefox, Safari, Edge</li>
+      </ol>
+
+      <h3>💡 Design Details</h3>
+      <p>The favicon shows a stylized image gallery:</p>
+      <ul style="line-height: 1.8;">
+        <li><strong>Background</strong> - Rounded square with gradient fill</li>
+        <li><strong>Images</strong> - Two overlapping frames (depth effect)</li>
+        <li><strong>Landscape</strong> - Mountain silhouette inside front frame</li>
+        <li><strong>Sun</strong> - Golden circle for warmth</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

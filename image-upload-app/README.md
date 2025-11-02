@@ -1,156 +1,211 @@
-# Image Upload App
+# Image Upload App 📸
 
-A full-stack React application for uploading and viewing images with mobile access support. Built with React Router, Express, and persistent file storage.
+A secure, full-stack image upload application with user authentication, folder-based permissions, and Docker deployment. Built with React, Express, MongoDB, and Docker.
 
-## Features
+## ✨ Features
 
-- Upload large images up to 100MB via drag-and-drop or file browser
-- Automatic image compression and optimization using Sharp
-- View all uploaded images in a responsive gallery
-- Delete images
-- Persistent storage on disk
-- Vibrant, soft gradient design with smooth animations
-- Fully optimized for iOS devices and PWA support
-- Mobile-friendly touch interface
-- **Public proxy support** - Access from anywhere using LocalTunnel
-- Lightweight and optimized for performance
-- Image caching for faster loading
-- Access from iPhone or any device on your local network
+### Core Features
+- 🔐 **User Authentication** - Secure JWT-based login/signup system
+- 📁 **Folder Organization** - Create and organize images in public/private folders
+- 🔒 **Permission System** - Control folder access with read/write/admin levels
+- 🎨 **Image Processing** - Automatic compression and optimization using Sharp
+- 📱 **Responsive Design** - Works perfectly on desktop and mobile devices
+- 🌐 **Public Access** - Optional LocalTunnel support for external access
+
+### Technical Features
+- 🐳 **Docker Ready** - Fully containerized with MongoDB included
+- 💾 **Database Persistence** - MongoDB for users, folders, and images
+- 🚀 **Easy Deployment** - One-command deploy to AWS Lightsail ($10/month)
+- 🔄 **Automatic Backups** - Built-in database backup and restore tools
+- 🛡️ **Security** - Role-based access, bcrypt passwords, JWT tokens
+- ⚡ **Hot Reload** - Development environment with instant updates
 
 ## Tech Stack
 
 **Frontend:**
 - React 18
-- React Router DOM 6
-- CSS3 with responsive design
+- React Router 6
+- Tailwind CSS 3
+- Context API (Auth)
 
 **Backend:**
-- Node.js
-- Express
+- Node.js 18
+- Express 4
+- Mongoose (MongoDB ODM)
+- JWT Authentication
 - Multer (file uploads)
-- Sharp (image compression and optimization)
-- CORS enabled
+- Sharp (image processing)
+
+**Database:**
+- MongoDB 7.0 (Docker)
+
+**Infrastructure:**
+- Docker & Docker Compose
+- Optional: AWS S3
 
 ## 🚀 Quick Start
 
-**New here? See the comprehensive guide:** [EASY-START-GUIDE.md](EASY-START-GUIDE.md)
+### Local Development (Windows)
 
-### Option 1: Local Network (Easiest)
-```bash
-start-local.bat
+The simplest way to get started:
+
+```cmd
+# Open Command Prompt or PowerShell
+cd path\to\image-upload-app
+
+# Start everything (includes MongoDB in Docker)
+start.bat
 ```
-Access from iPhone on same WiFi: `http://YOUR_IP:3000`
 
-### Option 2: Public Access (From Anywhere)
+**Access:** http://localhost:3000
+
+**That's it!** MongoDB, backend, and frontend are all running in Docker containers.
+
+### Alternative: Using npm Scripts
+
 ```bash
-start-with-tunnel.bat     # Start app with public LocalTunnel URL
+npm run start:dev
 ```
-Get a URL like: `https://abc-123.loca.lt`
 
-**No signup required!** LocalTunnel works immediately out of the box.
+**First time?** Docker will download images automatically (~5 minutes).
 
-**Having trouble?** See: [CHECK-FOR-ERRORS.md](CHECK-FOR-ERRORS.md)
+### macOS/Linux
 
-**First time?** Run `setup.bat` first to install dependencies.
+```bash
+./scripts/start-dev.sh
+```
+
+## 📚 Documentation
+
+| Guide | When to Use |
+|-------|-------------|
+| [**Quick Start**](./DOCKER_QUICK_START.md) | Get running in 3 minutes |
+| [**Windows Setup**](./WINDOWS_SETUP.md) | Windows-specific help |
+| [**Docker Guide**](./DOCKER_SETUP.md) | Complete Docker docs |
+| [**Authentication**](./AUTHENTICATION_SETUP.md) | User & permission setup |
+| [**Deploy Quick**](./DEPLOY_QUICK.md) | Deploy in 15 minutes |
+| [**Architecture**](./ARCHITECTURE.md) | System design |
+
+## 📦 What's Included
+
+When you run `start.bat`, you get:
+
+- **MongoDB** - Database running in Docker (port 27017)
+- **Mongo Express** - Web UI for MongoDB (port 8081)
+- **Backend** - API server with hot-reload (port 3001)
+- **Frontend** - React app with hot-reload (port 3000)
+
+**Access Points:**
+- App: http://localhost:3000
+- API: http://localhost:3001
+- Database Admin: http://localhost:8081 (login: admin/admin123)
 
 ## Project Structure
 
 ```
 image-upload-app/
 ├── backend/
-│   ├── uploads/          # Uploaded images stored here
-│   ├── server.js         # Express server
-│   └── package.json
+│   ├── models/           # MongoDB schemas (User, Folder, Image)
+│   ├── routes/           # API routes (auth, folders, images)
+│   ├── middleware/       # Auth & permissions
+│   ├── uploads/          # Local image storage
+│   └── server.js
 ├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Home.js
-│   │   │   ├── Upload.js
-│   │   │   └── Gallery.js
-│   │   ├── App.js
-│   │   └── index.js
-│   └── package.json
-└── README.md
+│   └── src/
+│       ├── components/   # React components
+│       ├── context/      # Auth context
+│       └── App.js
+├── scripts/              # Helper scripts
+│   ├── deploy.sh        # Production deployment
+│   ├── backup-prod.sh   # Database backup
+│   └── ...
+├── docker-compose.yml           # Production
+├── docker-compose.dev.yml       # Development
+├── docker-compose.prod.yml      # Production (Lightsail)
+└── start.bat                    # Quick start (Windows)
 ```
 
-## Setup Instructions
+## 💻 Requirements
 
-### Prerequisites
+**For Local Development:**
+- Docker Desktop (includes Docker & Docker Compose)
+- That's it! No need to install Node.js or MongoDB
 
-- Node.js (v14 or higher)
-- npm or yarn
+**Download Docker Desktop:**
+- Windows/Mac: https://www.docker.com/products/docker-desktop/
+- Linux: https://docs.docker.com/engine/install/
 
-### Installation
+## 🎯 First Time Setup
 
-1. **Install Backend Dependencies**
+1. **Install Docker Desktop**
+   - Download and install from link above
+   - Start Docker Desktop
+   - Wait for whale icon in system tray
 
-```bash
-cd backend
-npm install
-```
-
-2. **Install Frontend Dependencies**
-
-```bash
-cd frontend
-npm install
-```
-
-### Running the Application
-
-You need to run both the backend and frontend servers.
-
-**Option 1: Run in separate terminals**
-
-Terminal 1 - Backend:
-```bash
-cd backend
-npm start
-```
-The backend will start on http://localhost:3001
-
-Terminal 2 - Frontend:
-```bash
-cd frontend
-npm start
-```
-The frontend will start on http://localhost:3000
-
-**Option 2: Run backend in development mode**
-
-For automatic server restart on changes:
-```bash
-cd backend
-npm run dev
-```
-
-## Public Access (Access from Anywhere)
-
-Want to access your app from anywhere in the world, not just your local network?
-
-### Quick Start with LocalTunnel
-
-1. **Run the convenient startup script**:
+2. **Clone/Download Project**
    ```bash
-   start-with-tunnel.bat
+   git clone https://github.com/yourusername/image-upload-app.git
+   cd image-upload-app
    ```
 
-   This will:
-   - Start the backend server with LocalTunnel integration
-   - Start the frontend
-   - Create a public HTTPS URL automatically
-   - **No signup required!**
+3. **Start Everything**
+   ```bash
+   start.bat     # Windows
+   # or
+   ./scripts/start-dev.sh  # macOS/Linux
+   ```
 
-2. **Access from anywhere**:
-   - Check the backend server window for your public URL
-   - You'll get a URL like: `https://abc-123.loca.lt`
-   - Share this URL to access from any device, anywhere in the world
-   - Works perfectly on iPhone, Android, or any device with a browser
+4. **Create Account**
+   - Go to http://localhost:3000/signup
+   - Create your account
 
-**Note:** If you see "Invalid Host header" on first visit, just refresh the page - this is normal!
+5. **Make Yourself Admin** (optional)
+   - Open http://localhost:8081 (Mongo Express)
+   - Login: admin/admin123
+   - Navigate to: `image-upload-app` → `users`
+   - Find your user, change `role` from `"user"` to `"admin"`
+   - Save
 
-For more proxy options (ngrok, Cloudflare Tunnel), see [backend/proxy-setup.md](backend/proxy-setup.md)
+Done! Start uploading images! 🎉
+
+## 🚀 Deploy to Production
+
+### Option 1: AWS Lightsail with Docker (Recommended)
+
+Deploy everything (including MongoDB) to a $10/month server in ~15 minutes:
+
+```bash
+# On Lightsail server (after installing Docker)
+git clone https://github.com/yourusername/image-upload-app.git
+cd image-upload-app
+
+# Configure
+cp .env.production.example .env
+nano .env  # Add your passwords and settings
+
+# Deploy!
+./scripts/deploy.sh
+```
+
+**Cost:** $10/month (includes MongoDB, no separate database needed!)
+
+See the [Quick Deploy Guide](./DEPLOY_QUICK.md) for complete instructions.
+
+### Option 2: Any Docker-Compatible Host
+
+Works on:
+- DigitalOcean Droplets
+- Linode
+- Vultr
+- Any VPS with Docker
+
+Same process as Lightsail - just install Docker and run the deploy script!
+
+### Option 3: Cloud Platforms
+
+- Heroku, Railway, Render, etc.
+- May require separate MongoDB (use MongoDB Atlas)
+- Check platform-specific documentation
 
 ## Accessing from iPhone (Local Network)
 
@@ -208,83 +263,192 @@ If you can't access the app from your iPhone:
    - Stop both frontend and backend servers
    - Start backend first, then frontend
 
-## Usage
+## 📱 Using the App
 
-### Uploading Images
+### 1. Create Account
+- Go to "Sign Up" in the menu
+- Enter username, email, password
+- Login with your credentials
 
-1. Navigate to the "Upload" page
-2. Either:
-   - Click the upload area and select an image from your file browser
-   - Drag and drop an image onto the upload area
-3. Click "Upload" to save the image
-4. Supported formats: PNG, JPG, GIF, WEBP (up to 100MB)
-5. Images are automatically compressed and optimized for efficient storage and fast loading
+### 2. Create Folders
+- Navigate to "Folders"
+- Click "New Folder"
+- Choose public (anyone can view) or private (only you and permitted users)
 
-### Viewing Gallery
+### 3. Upload Images
+1. Go to "Upload"
+2. Select a folder from dropdown (only shows folders you can write to)
+3. Drag and drop or click to select image
+4. Click "Upload"
+5. Supported formats: PNG, JPG, GIF, WEBP (up to 100MB)
+6. Images auto-compressed and optimized
+7. Image is saved to selected folder with your permissions
 
-1. Navigate to the "Gallery" page
-2. View all uploaded images in a grid layout
-3. Click any image to view it in full size
-4. Click "Delete" to remove an image
+### 4. View Gallery
+- Browse all images you have access to (based on folder permissions)
+- Filter by folder using dropdown
+- See folder name and uploader for each image
+- Click image for fullscreen view with detailed info
+- Delete images you uploaded or have permission to delete
 
-### Mobile Usage
+### 5. Manage Permissions (Admins)
+- Control who can access each folder
+- Set permission levels: read, write, admin
+- Make folders public or private
 
-The app is fully responsive and works great on mobile:
-- Upload images from your iPhone's camera or photo library
-- View and manage your gallery on the go
-- Touch-friendly interface
+## 🔐 Security Features
 
-## API Endpoints
+- ✅ **JWT Authentication** - 7-day token expiration
+- ✅ **Bcrypt Password Hashing** - Industry-standard encryption
+- ✅ **HTTP-Only Cookies** - Secure token storage
+- ✅ **Role-Based Access** - Admin and user roles
+- ✅ **Folder Permissions** - Read, write, admin levels
+- ✅ **Input Validation** - All inputs validated and sanitized
+- ✅ **CORS Protection** - Whitelist trusted origins
+- ✅ **File Type Validation** - Images only
+- ✅ **File Size Limits** - Max 100MB per upload
 
-- `POST /api/upload` - Upload a new image
-- `GET /api/images` - Get all uploaded images
-- `DELETE /api/images/:filename` - Delete an image
-- `GET /uploads/:filename` - Access uploaded image files
+### Production Security Checklist
 
-## Storage
+- [ ] Change default MongoDB password
+- [ ] Generate strong JWT secret (`openssl rand -hex 32`)
+- [ ] Enable HTTPS with SSL certificate
+- [ ] Remove or secure Mongo Express
+- [ ] Configure firewall rules
+- [ ] Set up automatic backups
+- [ ] Enable rate limiting
+- [ ] Configure proper CORS for your domain
 
-Images are stored persistently in the `backend/uploads/` directory. They will remain there until manually deleted through the app or directly from the file system.
-
-## Development
-
-### Code Quality
-
-**ESLint Auto-Fix:**
-```bash
-cd frontend
-npm run lint:fix
-```
-
-Or use the Windows batch script:
-```bash
-lint-fix.bat
-```
-
-ESLint is configured to auto-fix on save in VS Code. See [frontend/LINTING.md](frontend/LINTING.md) for details.
+## 🛠️ Development
 
 ### Making Changes
 
-1. Frontend changes: Edit files in `frontend/src/`
-2. Backend changes: Edit `backend/server.js`
-3. The frontend will hot-reload automatically
-4. The backend requires manual restart (or use `npm run dev` for auto-restart)
-5. Lint issues are auto-fixed on save (VS Code)
+The development environment includes hot-reloading:
 
-## Security Notes
+```bash
+# Edit frontend code - auto-reloads
+frontend/src/components/*.js
 
-This app is designed for local network use. For production deployment:
+# Edit backend code - auto-restarts
+backend/routes/*.js
+backend/models/*.js
+```
 
-- Add authentication
-- Implement rate limiting
-- Add file validation
-- Set up HTTPS
-- Configure proper CORS policies
-- Add input sanitization
+Just save your changes and see them instantly!
 
-## License
+### Database Management
 
-MIT
+```bash
+# Backup database
+npm run db:backup
 
-## Support
+# Restore database
+npm run db:restore ./backups/backup_20240101.gz
 
-For issues or questions, please open an issue in the repository.
+# View database in browser
+# Open: http://localhost:8081
+```
+
+### View Logs
+
+```bash
+# All services
+npm run docker:logs
+
+# Specific service
+docker compose logs -f backend
+docker compose logs -f mongodb
+```
+
+## 💾 Data Persistence
+
+**Local Development:**
+- MongoDB data: Docker volume `mongodb_data_dev`
+- Images: Docker volume `uploads_data_dev` or `backend/uploads/`
+- Data persists between restarts
+- Delete with: `docker-compose down -v`
+
+**Production:**
+- MongoDB data: Docker volume `mongodb_data_prod`
+- Images: Docker volume `uploads_data_prod`
+- Regular automated backups recommended
+- Optional: Use AWS S3 for image storage
+
+## 🎯 Quick Command Reference
+
+```bash
+# Local Development
+start.bat                           # Start (Windows)
+npm run start:dev                   # Start (all platforms)
+npm run docker:logs                 # View logs
+npm run docker:ps                   # Check status
+
+# Database
+npm run db:backup                   # Backup database
+npm run db:restore <file>           # Restore backup
+
+# Production (on server)
+./scripts/deploy.sh                 # Deploy to production
+npm run db:backup:prod              # Backup production DB
+npm run docker:prod:logs            # View production logs
+docker compose -f docker-compose.prod.yml restart  # Restart services
+```
+
+## 🐛 Troubleshooting
+
+### Docker Issues
+- **Windows:** See [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)
+- **General:** See [DOCKER_SETUP.md](./DOCKER_SETUP.md)
+
+### Can't Access App?
+```bash
+docker ps                    # Check if containers are running
+docker compose logs -f       # View logs
+```
+
+### Need Fresh Start?
+```bash
+# Development
+docker-compose -f docker-compose.dev.yml down -v
+start.bat
+
+# Production
+docker-compose -f docker-compose.prod.yml down -v
+./scripts/deploy.sh
+```
+
+## 💰 Costs
+
+**Local Development:**
+- Free! Everything runs on your machine
+
+**Production (AWS Lightsail):**
+- $10/month - Includes MongoDB, no extra database cost
+- First 3 months free with AWS Free Tier
+- Optional: S3 storage ($0.023/GB)
+
+## 📄 License
+
+MIT License - See LICENSE file for details
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## 🆘 Support
+
+- 📖 [Documentation](./DOCKER_SETUP.md)
+- 🐛 [Report Issues](https://github.com/yourusername/image-upload-app/issues)
+- 💬 [Discussions](https://github.com/yourusername/image-upload-app/discussions)
+
+---
+
+**Made with ❤️ using Docker, React, Node.js, and MongoDB**
+
+**Start developing:** `start.bat`
+
+**Deploy to production:** [Quick Deploy Guide](./DEPLOY_QUICK.md) (15 minutes, $10/month)

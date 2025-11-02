@@ -45,8 +45,8 @@
 }
 
 .feature:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 40px rgba(236, 72, 153, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(236, 72, 153, 0.12);
 }
 
 .feature h3 {

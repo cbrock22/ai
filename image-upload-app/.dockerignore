@@ -1,11 +1,57 @@
+# Node modules
 node_modules
 npm-debug.log
-.git
-.gitignore
+yarn-error.log
+
+# Environment files
 .env
 .env.local
+.env.*.local
+
+# Build files
+dist
+build
 backend/uploads
 frontend/build
-*.md
-.DS_Store
+*.log
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
 .vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+
+# Test files
+test
+tests
+*.test.js
+*.spec.js
+coverage
+.nyc_output
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Development files
+docker-compose.dev.yml
+Dockerfile.dev
+
+# Scripts
+scripts

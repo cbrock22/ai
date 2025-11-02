@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
+const cookieParser = require('cookie-parser');
 const multer = require('multer');
 const sharp = require('sharp');
 const { join } = require('path');
@@ -14,6 +16,75 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const uploadsDir = join(__dirname, 'uploads');
+
+// MongoDB connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/image-upload-app';
+mongoose.connect(MONGODB_URI)
+  .then(async () => {
+    console.log('📦 Connected to MongoDB');
+
+    // Create default admin user if it doesn't exist
+    await createDefaultAdmin();
+  })
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// Function to create default admin user
+async function createDefaultAdmin() {
+  try {
+    const User = require('./models/User');
+
+    const adminUsername = process.env.DEFAULT_ADMIN_USERNAME || 'admin';
+    const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@example.com';
+    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'ChangeThisPassword123!';
+
+    // Check if user already exists
+    const existingUser = await User.findOne({
+      $or: [{ username: adminUsername }, { email: adminEmail }]
+    });
+
+    if (existingUser) {
+      // User exists - upgrade to admin and reset password
+      let updated = false;
+
+      if (existingUser.role !== 'admin') {
+        existingUser.role = 'admin';
+        updated = true;
+      }
+
+      // Always update password to match the admin password from env
+      existingUser.password = adminPassword;
+      updated = true;
+
+      if (updated) {
+        await existingUser.save();
+        console.log('✅ Existing user upgraded to admin with new password');
+        console.log(`   Username: ${existingUser.username}`);
+        console.log(`   Email: ${existingUser.email}`);
+      } else {
+        console.log('👤 Admin user already exists');
+        console.log(`   Username: ${existingUser.username}`);
+        console.log(`   Email: ${existingUser.email}`);
+      }
+      return;
+    }
+
+    // Create new admin user
+    const adminUser = new User({
+      username: adminUsername,
+      email: adminEmail,
+      password: adminPassword,
+      role: 'admin'
+    });
+
+    await adminUser.save();
+    console.log('✅ Default admin user created successfully');
+    console.log(`   Username: ${adminUsername}`);
+    console.log(`   Email: ${adminEmail}`);
+    console.log('   ⚠️  IMPORTANT: Change the default admin password!');
+  } catch (error) {
+    console.error('❌ Error creating default admin user:', error.message);
+  }
+}
 
 // S3 configuration
 const USE_S3 = process.env.USE_S3 === 'true';
@@ -30,8 +101,12 @@ const S3_BUCKET = process.env.S3_BUCKET_NAME;
 if (!USE_S3 && !existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true});
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json({ limit: '1mb' }));
+app.use(cookieParser());
 
 // Serve images with caching headers for better performance (local storage only)
 if (!USE_S3) {
@@ -42,12 +117,22 @@ if (!USE_S3) {
   }));
 }
 
+// API Routes
+const authRoutes = require('./routes/auth');
+const folderRoutes = require('./routes/folders');
+const imageRoutes = require('./routes/images');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/folders', folderRoutes);
+app.use('/api/images', imageRoutes);
+
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {
   const frontendPath = join(__dirname, '..', 'frontend', 'build');
   app.use(express.static(frontendPath));
 }
 
+// Legacy routes (kept for backwards compatibility but should use new /api/images routes)
 // Multer configuration - memory storage for compression
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -58,6 +143,8 @@ const upload = multer({
 // Helper: Generate unique filename
 const generateFilename = () => `${Date.now()}-${Math.round(Math.random() * 1E9)}.jpg`;
 
+/*
+// DEPRECATED: Use /api/images instead
 // API: Upload and compress image
 app.post('/api/upload', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -161,6 +248,7 @@ app.delete('/api/images/:filename', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+*/
 
 // Handle React routing - catch-all route (must be after API routes)
 if (process.env.NODE_ENV === 'production') {

@@ -15,25 +15,42 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    - name: Build Docker image
+    - name: Create .env file
       run: |
         cd image-upload-app
-        docker build -t image-upload-app .
+        cat > .env << EOF
+        # MongoDB Credentials
+        MONGO_USERNAME=${{ secrets.MONGO_USERNAME }}
+        MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}
 
-    - name: Save Docker image
-      run: docker save image-upload-app | gzip > image-upload-app.tar.gz
+        # JWT Secret
+        JWT_SECRET=${{ secrets.JWT_SECRET }}
 
-    - name: Copy image to Lightsail
+        # Frontend URL
+        FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+
+        # S3 Storage
+        USE_S3=true
+        AWS_REGION=${{ secrets.AWS_REGION }}
+        AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}
+
+        # Default Admin User
+        DEFAULT_ADMIN_USERNAME=${{ secrets.DEFAULT_ADMIN_USERNAME }}
+        DEFAULT_ADMIN_EMAIL=${{ secrets.DEFAULT_ADMIN_EMAIL }}
+        DEFAULT_ADMIN_PASSWORD=${{ secrets.DEFAULT_ADMIN_PASSWORD }}
+        EOF
+
+    - name: Copy files to Lightsail
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.LIGHTSAIL_HOST }}
         username: ${{ secrets.LIGHTSAIL_USERNAME }}
         key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-        source: "image-upload-app.tar.gz"
-        target: "/tmp"
+        source: "image-upload-app"
+        target: "/home/${{ secrets.LIGHTSAIL_USERNAME }}"
+        rm: true
 
     - name: Deploy on Lightsail
       uses: appleboy/ssh-action@master
@@ -42,28 +59,17 @@ jobs:
         username: ${{ secrets.LIGHTSAIL_USERNAME }}
         key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
         script: |
-          # Load the Docker image
-          docker load < /tmp/image-upload-app.tar.gz
+          cd /home/${{ secrets.LIGHTSAIL_USERNAME }}/image-upload-app
 
-          # Stop and remove old container
-          docker stop image-upload-app || true
-          docker rm image-upload-app || true
+          # Stop and remove old containers
+          docker-compose -f docker-compose.prod.yml down || true
 
-          # Run new container
-          docker run -d \
-            --name image-upload-app \
-            -p 80:3001 \
-            -e NODE_ENV=production \
-            -e USE_S3=true \
-            -e AWS_REGION=${{ secrets.AWS_REGION }} \
-            -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-            -e S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }} \
-            --restart unless-stopped \
-            image-upload-app
+          # Pull latest images and rebuild
+          docker-compose -f docker-compose.prod.yml pull || true
+          docker-compose -f docker-compose.prod.yml up -d --build
 
-          # Clean up
-          rm /tmp/image-upload-app.tar.gz
+          # Clean up old images
+          docker image prune -af
 
-          # Remove old images
-          docker image prune -f
+          # Show status
+          docker-compose -f docker-compose.prod.yml ps
