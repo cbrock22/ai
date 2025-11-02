@@ -42,23 +42,23 @@ jobs:
         DEFAULT_ADMIN_PASSWORD=${{ secrets.DEFAULT_ADMIN_PASSWORD }}
         EOF
 
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/lightsail_key
+        chmod 600 ~/.ssh/lightsail_key
+        ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts
+
     - name: Copy files to Lightsail
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.LIGHTSAIL_HOST }}
-        username: ${{ secrets.LIGHTSAIL_USERNAME }}
-        key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-        source: "image-upload-app"
-        target: "/home/${{ secrets.LIGHTSAIL_USERNAME }}"
-        rm: true
+      run: |
+        rsync -avz --delete -e "ssh -i ~/.ssh/lightsail_key -o StrictHostKeyChecking=no" \
+          image-upload-app/ \
+          ${{ secrets.LIGHTSAIL_USERNAME }}@${{ secrets.LIGHTSAIL_HOST }}:/home/${{ secrets.LIGHTSAIL_USERNAME }}/image-upload-app/
 
     - name: Deploy on Lightsail
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.LIGHTSAIL_HOST }}
-        username: ${{ secrets.LIGHTSAIL_USERNAME }}
-        key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-        script: |
+      run: |
+        ssh -i ~/.ssh/lightsail_key -o StrictHostKeyChecking=no \
+          ${{ secrets.LIGHTSAIL_USERNAME }}@${{ secrets.LIGHTSAIL_HOST }} << 'ENDSSH'
           cd /home/${{ secrets.LIGHTSAIL_USERNAME }}/image-upload-app
 
           # Stop and remove old containers
@@ -73,3 +73,4 @@ jobs:
 
           # Show status
           docker-compose -f docker-compose.prod.yml ps
+        ENDSSH
