@@ -1,0 +1,321 @@
+.folder-access-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.folder-access-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.folder-access-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.folder-access-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.close-button:hover {
+  background-color: #f0f0f0;
+}
+
+.folder-access-content {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.access-section {
+  margin-bottom: 32px;
+}
+
+.access-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  color: #555;
+}
+
+.access-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8f8f8;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.owner-item {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.owner-item .username,
+.owner-item .user-email {
+  color: white;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.username {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.user-email {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.access-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.access-badge,
+.access-select {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.access-badge-owner {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.access-badge-admin {
+  background: #f44336;
+  color: white;
+}
+
+.access-badge-write {
+  background: #ff9800;
+  color: white;
+}
+
+.access-badge-read {
+  background: #4caf50;
+  color: white;
+}
+
+.access-select {
+  border: 2px solid #ddd;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.access-select:hover:not(:disabled) {
+  border-color: #667eea;
+}
+
+.access-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.access-select.access-badge-admin {
+  border-color: #f44336;
+  color: #f44336;
+}
+
+.access-select.access-badge-write {
+  border-color: #ff9800;
+  color: #ff9800;
+}
+
+.access-select.access-badge-read {
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
+.remove-button {
+  padding: 6px 12px;
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.remove-button:hover:not(:disabled) {
+  background: #d32f2f;
+}
+
+.remove-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.no-permissions,
+.no-users {
+  color: #999;
+  font-style: italic;
+  text-align: center;
+  padding: 16px;
+}
+
+.add-user-section {
+  background: #f0f4ff;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.add-user-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.user-select,
+.access-level-select {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.user-select:hover:not(:disabled),
+.access-level-select:hover:not(:disabled) {
+  border-color: #667eea;
+}
+
+.user-select:focus,
+.access-level-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.add-button {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.add-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.add-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.access-info {
+  background: #fffbf0;
+  padding: 16px;
+  border-radius: 8px;
+  border-left: 4px solid #ffc107;
+}
+
+.access-descriptions {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.access-descriptions li {
+  margin-bottom: 8px;
+  color: #555;
+  line-height: 1.6;
+}
+
+.error-message {
+  background: #ffebee;
+  color: #c62828;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin: 16px 24px;
+  border-left: 4px solid #c62828;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .folder-access-modal {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .access-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .access-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .add-user-form {
+    flex-direction: column;
+  }
+
+  .user-select,
+  .access-level-select,
+  .add-button {
+    width: 100%;
+  }
+}
