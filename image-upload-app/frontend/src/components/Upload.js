@@ -6,12 +6,16 @@ import './Upload.css';
 const Upload = () => {
   const { token, apiUrl } = useAuth();
   const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadMode, setUploadMode] = useState('single'); // 'single', 'multiple', 'folder'
   const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState('');
   const [loadingFolders, setLoadingFolders] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState([]);
+  const [currentlyUploading, setCurrentlyUploading] = useState(0);
 
   // Fetch folders user has write access to
   useEffect(() => {
@@ -55,38 +59,38 @@ const Upload = () => {
   }, []);
 
   const handleFileSelect = useCallback((e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      createPreview(file);
+    if (uploadMode === 'single') {
+      const file = e.target.files[0];
+      if (file) {
+        setSelectedFile(file);
+        createPreview(file);
+      }
+    } else {
+      // Multiple files or folder
+      const files = Array.from(e.target.files).filter(file => file.type.startsWith('image/'));
+      setSelectedFiles(files);
+      setMessage(`${files.length} image(s) selected`);
     }
-  }, [createPreview]);
+  }, [createPreview, uploadMode]);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file?.type.startsWith('image/')) {
-      setSelectedFile(file);
-      createPreview(file);
+    if (uploadMode === 'single') {
+      const file = e.dataTransfer.files[0];
+      if (file?.type.startsWith('image/')) {
+        setSelectedFile(file);
+        createPreview(file);
+      }
+    } else {
+      const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+      setSelectedFiles(files);
+      setMessage(`${files.length} image(s) selected`);
     }
-  }, [createPreview]);
+  }, [createPreview, uploadMode]);
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      setMessage('Please select a file first');
-      return;
-    }
-
-    if (!selectedFolder) {
-      setMessage('Please select a folder');
-      return;
-    }
-
-    setUploading(true);
-    setMessage('');
-
+  const uploadSingleFile = async (file, index = null) => {
     const formData = new FormData();
-    formData.append('image', selectedFile);
+    formData.append('image', file);
     formData.append('folderId', selectedFolder);
 
     try {
@@ -102,26 +106,108 @@ const Upload = () => {
       const data = await response.json();
 
       if (response.ok) {
+        return { success: true, filename: file.name };
+      } else {
+        return { success: false, filename: file.name, error: data.error };
+      }
+    } catch (error) {
+      return { success: false, filename: file.name, error: error.message };
+    }
+  };
+
+  const handleUpload = async () => {
+    if (uploadMode === 'single') {
+      if (!selectedFile) {
+        setMessage('Please select a file first');
+        return;
+      }
+
+      if (!selectedFolder) {
+        setMessage('Please select a folder');
+        return;
+      }
+
+      setUploading(true);
+      setMessage('');
+
+      const result = await uploadSingleFile(selectedFile);
+
+      if (result.success) {
         setMessage('Image uploaded successfully!');
         setSelectedFile(null);
         setPreview(null);
-        // Reset file input
         document.getElementById('file-input').value = '';
       } else {
-        setMessage(`Error: ${data.error}`);
+        setMessage(`Error: ${result.error}`);
       }
-    } catch (error) {
-      setMessage(`Error: ${error.message}`);
-    } finally {
       setUploading(false);
+    } else {
+      // Batch upload
+      if (selectedFiles.length === 0) {
+        setMessage('Please select files first');
+        return;
+      }
+
+      if (!selectedFolder) {
+        setMessage('Please select a folder');
+        return;
+      }
+
+      setUploading(true);
+      setMessage('');
+      setUploadProgress([]);
+
+      const results = [];
+
+      for (let i = 0; i < selectedFiles.length; i++) {
+        setCurrentlyUploading(i + 1);
+        const result = await uploadSingleFile(selectedFiles[i], i);
+        results.push(result);
+
+        setUploadProgress(prev => [...prev, result]);
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.length - successCount;
+
+      setMessage(`Upload complete: ${successCount} succeeded${failCount > 0 ? `, ${failCount} failed` : ''}`);
+      setUploading(false);
+      setCurrentlyUploading(0);
+
+      // Clear after a delay if all succeeded
+      if (failCount === 0) {
+        setTimeout(() => {
+          setSelectedFiles([]);
+          setUploadProgress([]);
+          document.getElementById('file-input-multiple').value = '';
+          if (document.getElementById('file-input-folder')) {
+            document.getElementById('file-input-folder').value = '';
+          }
+        }, 2000);
+      }
     }
   };
 
   const handleClear = () => {
     setSelectedFile(null);
+    setSelectedFiles([]);
     setPreview(null);
     setMessage('');
-    document.getElementById('file-input').value = '';
+    setUploadProgress([]);
+    if (document.getElementById('file-input')) {
+      document.getElementById('file-input').value = '';
+    }
+    if (document.getElementById('file-input-multiple')) {
+      document.getElementById('file-input-multiple').value = '';
+    }
+    if (document.getElementById('file-input-folder')) {
+      document.getElementById('file-input-folder').value = '';
+    }
+  };
+
+  const handleModeChange = (mode) => {
+    handleClear();
+    setUploadMode(mode);
   };
 
   if (loadingFolders) {
@@ -167,51 +253,173 @@ const Upload = () => {
           </select>
         </div>
 
-        <div
-          className="drop-zone soft-zone"
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-          onClick={() => document.getElementById('file-input').click()}
-        >
-          {preview ? (
-            <img src={preview} alt="Preview" className="preview-image" />
-          ) : (
-            <div className="drop-zone-content">
-              <svg className="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <p>Click to browse or drag and drop</p>
-              <p className="file-types">PNG, JPG, GIF up to 100MB (auto-compressed)</p>
-            </div>
-          )}
+        {/* Upload Mode Selector */}
+        <div className="upload-mode-selector">
+          <button
+            className={`mode-btn ${uploadMode === 'single' ? 'active' : ''}`}
+            onClick={() => handleModeChange('single')}
+            disabled={uploading}
+          >
+            Single Image
+          </button>
+          <button
+            className={`mode-btn ${uploadMode === 'multiple' ? 'active' : ''}`}
+            onClick={() => handleModeChange('multiple')}
+            disabled={uploading}
+          >
+            Multiple Images
+          </button>
+          <button
+            className={`mode-btn ${uploadMode === 'folder' ? 'active' : ''}`}
+            onClick={() => handleModeChange('folder')}
+            disabled={uploading}
+          >
+            Folder
+          </button>
         </div>
 
-        <input
-          id="file-input"
-          type="file"
-          accept="image/*"
-          onChange={handleFileSelect}
-          style={{ display: 'none' }}
-        />
+        {/* Single File Upload */}
+        {uploadMode === 'single' && (
+          <>
+            <div
+              className="drop-zone soft-zone"
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => document.getElementById('file-input').click()}
+            >
+              {preview ? (
+                <img src={preview} alt="Preview" className="preview-image" />
+              ) : (
+                <div className="drop-zone-content">
+                  <svg className="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p>Click to browse or drag and drop</p>
+                  <p className="file-types">PNG, JPG, GIF up to 100MB (auto-compressed)</p>
+                </div>
+              )}
+            </div>
 
-        {selectedFile && (
-          <div className="file-info">
-            <p><strong>Selected:</strong> {selectedFile.name}</p>
-            <p><strong>Size:</strong> {(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+            <input
+              id="file-input"
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+
+            {selectedFile && (
+              <div className="file-info">
+                <p><strong>Selected:</strong> {selectedFile.name}</p>
+                <p><strong>Size:</strong> {(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Multiple Files Upload */}
+        {uploadMode === 'multiple' && (
+          <>
+            <div
+              className="drop-zone soft-zone"
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => document.getElementById('file-input-multiple').click()}
+            >
+              <div className="drop-zone-content">
+                <svg className="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+                <p>Click to browse or drag and drop multiple images</p>
+                <p className="file-types">Select multiple PNG, JPG, GIF files</p>
+              </div>
+            </div>
+
+            <input
+              id="file-input-multiple"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+
+            {selectedFiles.length > 0 && (
+              <div className="file-info">
+                <p><strong>{selectedFiles.length} images selected</strong></p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Folder Upload */}
+        {uploadMode === 'folder' && (
+          <>
+            <div
+              className="drop-zone soft-zone"
+              onClick={() => document.getElementById('file-input-folder').click()}
+            >
+              <div className="drop-zone-content">
+                <svg className="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10l-3 3m0 0l-3-3m3 3V3" />
+                </svg>
+                <p>Click to select a folder</p>
+                <p className="file-types">All images in the folder will be uploaded</p>
+              </div>
+            </div>
+
+            <input
+              id="file-input-folder"
+              type="file"
+              webkitdirectory="true"
+              directory="true"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+
+            {selectedFiles.length > 0 && (
+              <div className="file-info">
+                <p><strong>{selectedFiles.length} images found in folder</strong></p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Upload Progress */}
+        {uploadMode !== 'single' && uploading && uploadProgress.length > 0 && (
+          <div className="upload-progress">
+            <p className="progress-header">
+              Uploading {currentlyUploading} of {selectedFiles.length}...
+            </p>
+            <div className="progress-list">
+              {uploadProgress.map((result, idx) => (
+                <div key={idx} className={`progress-item ${result.success ? 'success' : 'error'}`}>
+                  <span className="progress-filename">{result.filename}</span>
+                  <span className="progress-status">
+                    {result.success ? '✓' : '✗'}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {message && (
-          <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
+          <div className={`message ${message.includes('Error') || message.includes('failed') ? 'error' : 'success'}`}>
             {message}
           </div>
         )}
 
         <div className="button-group">
-          <button className="btn btn-primary" onClick={handleUpload} disabled={!selectedFile || uploading}>
-            {uploading ? 'Uploading...' : 'Upload'}
+          <button
+            className="btn btn-primary"
+            onClick={handleUpload}
+            disabled={(uploadMode === 'single' ? !selectedFile : selectedFiles.length === 0) || uploading}
+          >
+            {uploading ? (uploadMode === 'single' ? 'Uploading...' : `Uploading ${currentlyUploading}/${selectedFiles.length}...`) : 'Upload'}
           </button>
-          {selectedFile && (
+          {((uploadMode === 'single' && selectedFile) || (uploadMode !== 'single' && selectedFiles.length > 0)) && (
             <button className="btn btn-secondary" onClick={handleClear} disabled={uploading}>
               Clear
             </button>
