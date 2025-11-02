@@ -44,9 +44,8 @@ jobs:
       run: |
         cd image-upload-app
         cat > .env << EOF
-        # MongoDB Credentials
-        MONGO_USERNAME=${{ secrets.MONGO_USERNAME }}
-        MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}
+        # MongoDB Atlas Connection String
+        MONGODB_URI=${{ secrets.MONGODB_URI }}
 
         # JWT Secret
         JWT_SECRET=${{ secrets.JWT_SECRET }}

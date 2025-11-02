@@ -1,34 +1,8 @@
 version: '3.8'
 
 services:
-  # MongoDB Database (Production)
-  mongodb:
-    image: mongo:7.0
-    container_name: image-upload-mongodb-prod
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-CHANGE_THIS_PASSWORD}
-      MONGO_INITDB_DATABASE: image-upload-app
-    ports:
-      - "127.0.0.1:27017:27017"  # Only accessible from localhost
-    volumes:
-      - mongodb_data_prod:/data/db
-      - mongodb_config_prod:/data/configdb
-    networks:
-      - app-network
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   # Backend API + Frontend (Production)
+  # Note: MongoDB now runs on MongoDB Atlas (cloud) instead of locally
   backend:
     image: ghcr.io/cbrock22/image-upload-app:latest
     container_name: image-upload-backend-prod
@@ -39,7 +13,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      MONGODB_URI: mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD:-CHANGE_THIS_PASSWORD}@mongodb:27017/image-upload-app?authSource=admin
+      MONGODB_URI: ${MONGODB_URI}
       JWT_SECRET: ${JWT_SECRET}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       USE_S3: ${USE_S3:-false}
@@ -54,9 +28,6 @@ services:
       - uploads_data_prod:/app/backend/uploads
       # Uncomment if using SSL certificates
       # - /etc/letsencrypt:/etc/letsencrypt:ro
-    depends_on:
-      mongodb:
-        condition: service_healthy
     networks:
       - app-network
     healthcheck:
@@ -71,10 +42,6 @@ services:
         max-file: "3"
 
 volumes:
-  mongodb_data_prod:
-    driver: local
-  mongodb_config_prod:
-    driver: local
   uploads_data_prod:
     driver: local
 
