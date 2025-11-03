@@ -14,7 +14,9 @@
       "Bash(start.bat)",
       "Bash(docker logs:*)",
       "Bash(docker exec:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git reset:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
