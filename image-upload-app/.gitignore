@@ -49,6 +49,10 @@ Thumbs.db
 *.tar.gz
 *.tar
 
+# SSL Certificates
+certbot/conf/
+certbot/www/
+
 # Database backups
 backups/
 *.gz

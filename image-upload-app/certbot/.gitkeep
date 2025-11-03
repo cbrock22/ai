@@ -1,0 +1,2 @@
+# This directory will contain SSL certificates
+# Actual certificate files are excluded via .gitignore
