@@ -9,6 +9,7 @@ import Upload from './components/Upload';
 import Gallery from './components/Gallery';
 import Folders from './components/Folders';
 import FolderDetail from './components/FolderDetail';
+import PublicFolderView from './components/PublicFolderView';
 import Users from './components/Users';
 import './App.css';
 
@@ -230,8 +231,11 @@ function AppContent() {
       <div className="md:ml-64 min-h-screen">
         <div className="max-w-[1400px] mx-auto px-6 py-10">
         <Routes>
+          {/* Public routes */}
+          <Route path="/public/folder/:folderId" element={<PublicFolderView />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/register" element={<Signup />} />
           <Route
             path="/"
             element={

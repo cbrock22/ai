@@ -157,14 +157,20 @@ const Upload = () => {
       setMessage('');
       setUploadProgress([]);
 
+      // Upload in batches of 5 for better performance
+      const batchSize = 5;
       const results = [];
 
-      for (let i = 0; i < selectedFiles.length; i++) {
-        setCurrentlyUploading(i + 1);
-        const result = await uploadSingleFile(selectedFiles[i], i);
-        results.push(result);
+      for (let i = 0; i < selectedFiles.length; i += batchSize) {
+        const batch = selectedFiles.slice(i, i + batchSize);
+        setCurrentlyUploading(Math.min(i + batchSize, selectedFiles.length));
 
-        setUploadProgress(prev => [...prev, result]);
+        // Upload batch in parallel
+        const batchPromises = batch.map(file => uploadSingleFile(file));
+        const batchResults = await Promise.all(batchPromises);
+
+        results.push(...batchResults);
+        setUploadProgress(prev => [...prev, ...batchResults]);
       }
 
       const successCount = results.filter(r => r.success).length;

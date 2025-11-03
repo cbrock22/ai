@@ -18,6 +18,7 @@ const Folders = () => {
   const [isPublic, setIsPublic] = useState(false);
   const [creating, setCreating] = useState(false);
   const [managingFolder, setManagingFolder] = useState(null);
+  const [copyMessage, setCopyMessage] = useState('');
 
   useEffect(() => {
     fetchFolders();
@@ -112,6 +113,20 @@ const Folders = () => {
     }
   };
 
+  const copyPublicLink = async (folderId) => {
+    const publicUrl = `${window.location.origin}/public/folder/${folderId}`;
+
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopyMessage('Link copied to clipboard!');
+      setTimeout(() => setCopyMessage(''), 3000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      setCopyMessage('Failed to copy link');
+      setTimeout(() => setCopyMessage(''), 3000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -137,6 +152,7 @@ const Folders = () => {
       </div>
 
       {error && <div className="message error">{error}</div>}
+      {copyMessage && <div className="message success">{copyMessage}</div>}
 
       {folders.length === 0 ? (
         <div className="empty-state soft-card">
@@ -182,6 +198,20 @@ const Folders = () => {
                     {folder.owner.username}
                   </span>
                 </div>
+                {folder.isPublic && (
+                  <button
+                    className="btn-copy-link"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyPublicLink(folder._id);
+                    }}
+                  >
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy Public Link
+                  </button>
+                )}
               </div>
               {(folder.owner._id === user._id || user.role === 'admin') && (
                 <div className="folder-actions">

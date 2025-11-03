@@ -4,10 +4,65 @@ const Folder = require('../models/Folder');
 const Image = require('../models/Image');
 const { authenticateToken } = require('../middleware/auth');
 const { checkFolderAccess } = require('../middleware/folderPermission');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { existsSync, unlinkSync } = require('fs');
+const { join } = require('path');
 
 const router = express.Router();
 
-// All routes require authentication
+// S3 configuration
+const USE_S3 = process.env.USE_S3 === 'true';
+const s3Client = USE_S3 ? new S3Client({
+  region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+}) : null;
+const S3_BUCKET = process.env.S3_BUCKET_NAME;
+const uploadsDir = join(__dirname, '../uploads');
+
+// Public folder viewing route (no authentication required)
+router.get('/public/:folderId', async (req, res) => {
+  try {
+    const folder = await Folder.findById(req.params.folderId)
+      .populate('owner', 'username email');
+
+    if (!folder) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    if (!folder.isPublic) {
+      return res.status(403).json({ error: 'This folder is not public' });
+    }
+
+    // Get images in this folder
+    const images = await Image.find({ folder: folder._id })
+      .populate('uploadedBy', 'username email')
+      .sort({ uploadDate: -1 });
+
+    // Ensure URLs are absolute
+    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
+    const imagesWithAbsoluteUrls = images.map(img => {
+      const imgObj = img.toObject();
+      if (imgObj.url && imgObj.url.startsWith('/uploads/')) {
+        imgObj.url = `${backendUrl}${imgObj.url}`;
+      }
+      return imgObj;
+    });
+
+    const folderObj = folder.toObject();
+    folderObj.imageCount = images.length;
+    folderObj.images = imagesWithAbsoluteUrls;
+
+    res.json(folderObj);
+  } catch (error) {
+    console.error('Get public folder error:', error);
+    res.status(500).json({ error: 'Failed to fetch folder' });
+  }
+});
+
+// All routes below require authentication
 router.use(authenticateToken);
 
 // Get all folders accessible by user
@@ -159,21 +214,43 @@ router.put('/:folderId',
   }
 );
 
-// Delete folder
+// Delete folder (cascade delete all images and S3 objects)
 router.delete('/:folderId', checkFolderAccess('admin'), async (req, res) => {
   try {
-    // Check if folder has images
-    const imageCount = await Image.countDocuments({ folder: req.folder._id });
+    // Get all images in this folder
+    const images = await Image.find({ folder: req.folder._id });
 
-    if (imageCount > 0) {
-      return res.status(400).json({
-        error: 'Cannot delete folder with images. Delete images first.'
-      });
+    // Delete each image from storage (S3 or local)
+    for (const image of images) {
+      try {
+        if (USE_S3) {
+          const command = new DeleteObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: image.filename
+          });
+          await s3Client.send(command);
+        } else {
+          const filePath = join(uploadsDir, image.filename);
+          if (existsSync(filePath)) {
+            unlinkSync(filePath);
+          }
+        }
+      } catch (deleteError) {
+        console.error(`Failed to delete image ${image.filename}:`, deleteError);
+        // Continue deleting other images even if one fails
+      }
     }
 
+    // Delete all image records from database
+    await Image.deleteMany({ folder: req.folder._id });
+
+    // Delete the folder
     await Folder.deleteOne({ _id: req.folder._id });
 
-    res.json({ message: 'Folder deleted successfully' });
+    res.json({
+      message: 'Folder and all images deleted successfully',
+      deletedImages: images.length
+    });
   } catch (error) {
     console.error('Delete folder error:', error);
     res.status(500).json({ error: 'Failed to delete folder' });
