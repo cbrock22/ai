@@ -13,6 +13,15 @@ const imageSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  originalFilename: {
+    type: String
+  },
+  originalUrl: {
+    type: String
+  },
+  originalSize: {
+    type: Number
+  },
   folder: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Folder',
