@@ -220,19 +220,38 @@ router.delete('/:folderId', checkFolderAccess('admin'), async (req, res) => {
     // Get all images in this folder
     const images = await Image.find({ folder: req.folder._id });
 
-    // Delete each image from storage (S3 or local)
+    // Delete each image from storage (S3 or local) - both compressed and original
     for (const image of images) {
       try {
         if (USE_S3) {
+          // Delete compressed file
           const command = new DeleteObjectCommand({
             Bucket: S3_BUCKET,
             Key: image.filename
           });
           await s3Client.send(command);
+
+          // Delete original file if it exists
+          if (image.originalFilename) {
+            const originalCommand = new DeleteObjectCommand({
+              Bucket: S3_BUCKET,
+              Key: image.originalFilename
+            });
+            await s3Client.send(originalCommand);
+          }
         } else {
+          // Delete compressed file
           const filePath = join(uploadsDir, image.filename);
           if (existsSync(filePath)) {
             unlinkSync(filePath);
+          }
+
+          // Delete original file if it exists
+          if (image.originalFilename) {
+            const originalPath = join(uploadsDir, image.originalFilename);
+            if (existsSync(originalPath)) {
+              unlinkSync(originalPath);
+            }
           }
         }
       } catch (deleteError) {

@@ -40,7 +40,7 @@ const upload = multer({
 });
 
 // Helper: Generate unique filename
-const generateFilename = () => `${Date.now()}-${Math.round(Math.random() * 1E9)}.jpg`;
+const generateFilename = (ext = 'jpg') => `${Date.now()}-${Math.round(Math.random() * 1E9)}.${ext}`;
 
 // Upload image to folder
 router.post('/',
@@ -52,46 +52,72 @@ router.post('/',
     }
 
     try {
-      const filename = generateFilename();
+      // Get original file extension
+      const originalExt = req.file.originalname.split('.').pop().toLowerCase();
+      const originalFilename = generateFilename(originalExt);
+      const compressedFilename = generateFilename('jpg');
+
+      // Create compressed version for display
       const compressedBuffer = await sharp(req.file.buffer)
         .rotate()
         .resize(2400, 2400, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 85, progressive: true, mozjpeg: true })
         .toBuffer();
 
-      let url;
+      let url, originalUrl;
 
       if (USE_S3) {
-        // Upload to S3
-        const upload = new Upload({
+        // Upload compressed version to S3
+        const compressedUpload = new Upload({
           client: s3Client,
           params: {
             Bucket: S3_BUCKET,
-            Key: filename,
+            Key: compressedFilename,
             Body: compressedBuffer,
             ContentType: 'image/jpeg',
             CacheControl: 'max-age=604800'
           }
         });
 
-        await upload.done();
-        url = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${filename}`;
-      } else {
-        // Save locally
-        const fs = require('fs').promises;
-        await fs.writeFile(join(uploadsDir, filename), compressedBuffer);
+        // Upload original uncompressed version to S3
+        const originalUpload = new Upload({
+          client: s3Client,
+          params: {
+            Bucket: S3_BUCKET,
+            Key: originalFilename,
+            Body: req.file.buffer,
+            ContentType: req.file.mimetype,
+            CacheControl: 'max-age=604800'
+          }
+        });
 
-        // Construct full URL for Docker/development environments
+        await Promise.all([compressedUpload.done(), originalUpload.done()]);
+
+        url = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${compressedFilename}`;
+        originalUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${originalFilename}`;
+      } else {
+        // Save both versions locally
+        const fs = require('fs').promises;
+        await Promise.all([
+          fs.writeFile(join(uploadsDir, compressedFilename), compressedBuffer),
+          fs.writeFile(join(uploadsDir, originalFilename), req.file.buffer)
+        ]);
+
+        // Construct full URLs for Docker/development environments
         const protocol = req.protocol || 'http';
         const host = req.get('host') || `localhost:${process.env.PORT || 3001}`;
-        url = `${protocol}://${host}/uploads/${filename}`;
+        url = `${protocol}://${host}/uploads/${compressedFilename}`;
+        originalUrl = `${protocol}://${host}/uploads/${originalFilename}`;
       }
 
       // Save to database
       const image = new Image({
-        filename,
+        filename: compressedFilename,
         originalName: req.file.originalname,
         url,
+        originalFilename,
+        originalUrl,
+        originalSize: req.file.size,
         folder: req.folder._id,
         uploadedBy: req.user._id,
         size: compressedBuffer.length
@@ -275,17 +301,39 @@ router.delete('/:imageId', async (req, res) => {
       }
     }
 
-    // Delete from storage
+    // Delete from storage (both compressed and original)
     if (USE_S3) {
-      const command = new DeleteObjectCommand({
-        Bucket: S3_BUCKET,
-        Key: image.filename
-      });
-      await s3Client.send(command);
+      const deletePromises = [
+        s3Client.send(new DeleteObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: image.filename
+        }))
+      ];
+
+      // Delete original file if it exists
+      if (image.originalFilename) {
+        deletePromises.push(
+          s3Client.send(new DeleteObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: image.originalFilename
+          }))
+        );
+      }
+
+      await Promise.all(deletePromises);
     } else {
+      // Delete compressed file
       const filePath = join(uploadsDir, image.filename);
       if (existsSync(filePath)) {
         unlinkSync(filePath);
+      }
+
+      // Delete original file if it exists
+      if (image.originalFilename) {
+        const originalPath = join(uploadsDir, image.originalFilename);
+        if (existsSync(originalPath)) {
+          unlinkSync(originalPath);
+        }
       }
     }
 
@@ -296,6 +344,41 @@ router.delete('/:imageId', async (req, res) => {
   } catch (error) {
     console.error('Delete image error:', error);
     res.status(500).json({ error: 'Failed to delete image' });
+  }
+});
+
+// Download original uncompressed image
+router.get('/:imageId/download', async (req, res) => {
+  try {
+    const image = await Image.findById(req.params.imageId).populate('folder');
+
+    if (!image) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    // Check if user has access to the folder
+    const folder = image.folder;
+    const hasAccess =
+      folder.owner.toString() === req.user._id.toString() ||
+      folder.isPublic ||
+      folder.permissions.some(p => p.user.toString() === req.user._id.toString()) ||
+      req.user.role === 'admin';
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Return the original file URL or fall back to compressed if original doesn't exist
+    const downloadUrl = image.originalUrl || image.url;
+    const downloadFilename = image.originalFilename || image.filename;
+
+    res.json({
+      url: downloadUrl,
+      filename: image.originalName || downloadFilename
+    });
+  } catch (error) {
+    console.error('Download image error:', error);
+    res.status(500).json({ error: 'Failed to get download link' });
   }
 });
 
