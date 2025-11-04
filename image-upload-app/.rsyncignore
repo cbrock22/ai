@@ -1,0 +1,11 @@
+node_modules/
+.git/
+certbot/conf/
+certbot/www/
+.env
+.env.local
+.env.production
+backend/uploads/
+frontend/build/
+*.log
+.DS_Store

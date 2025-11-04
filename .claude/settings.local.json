@@ -16,7 +16,8 @@
       "Bash(docker exec:*)",
       "Bash(curl:*)",
       "Bash(git reset:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(docker info:*)"
     ],
     "deny": [],
     "ask": []
