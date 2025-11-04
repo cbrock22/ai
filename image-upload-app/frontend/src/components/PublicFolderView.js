@@ -12,8 +12,39 @@ const PublicFolderView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
+  const [requiresPassword, setRequiresPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
+    const checkPasswordRequirement = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/folders/public/${folderId}/check`);
+        const data = await response.json();
+
+        if (response.ok) {
+          setRequiresPassword(data.requiresPassword);
+
+          // Check if already verified in session storage
+          const verified = sessionStorage.getItem(`folder_${folderId}_verified`);
+          if (verified === 'true' || !data.requiresPassword) {
+            setIsVerified(true);
+            fetchPublicFolder();
+          } else {
+            setLoading(false);
+          }
+        } else {
+          setError(data.error || 'Failed to load folder');
+          setLoading(false);
+        }
+      } catch (err) {
+        setError('Failed to connect to server');
+        setLoading(false);
+      }
+    };
+
     const fetchPublicFolder = async () => {
       try {
         const response = await fetch(`${API_URL}/api/folders/public/${folderId}`);
@@ -32,8 +63,48 @@ const PublicFolderView = () => {
       }
     };
 
-    fetchPublicFolder();
+    checkPasswordRequirement();
   }, [folderId]);
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setVerifying(true);
+    setPasswordError('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/folders/public/${folderId}/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.verified) {
+        // Store verification in session
+        sessionStorage.setItem(`folder_${folderId}_verified`, 'true');
+        setIsVerified(true);
+        setLoading(true);
+
+        // Fetch folder data
+        const folderResponse = await fetch(`${API_URL}/api/folders/public/${folderId}`);
+        const folderData = await folderResponse.json();
+
+        if (folderResponse.ok) {
+          setFolder(folderData);
+        }
+        setLoading(false);
+      } else {
+        setPasswordError('Incorrect password');
+      }
+    } catch (err) {
+      setPasswordError('Failed to verify password');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const openLightbox = useCallback((image) => {
     setSelectedImage(image);
@@ -62,6 +133,40 @@ const PublicFolderView = () => {
           <button className="btn btn-primary" onClick={() => window.location.reload()}>
             Retry
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show password prompt if required and not verified
+  if (requiresPassword && !isVerified) {
+    return (
+      <div className="public-folder-view">
+        <div className="password-prompt soft-card">
+          <div className="password-prompt-content">
+            <svg className="lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="64" height="64">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <h2 className="gradient-text">Password Required</h2>
+            <p className="password-prompt-subtitle">This folder is password protected. Please enter the password to view images.</p>
+            <form onSubmit={handlePasswordSubmit} className="password-form">
+              <div className="form-group">
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
+                  required
+                  className="form-input"
+                  autoFocus
+                />
+                {passwordError && <p className="error-text">{passwordError}</p>}
+              </div>
+              <button type="submit" disabled={verifying} className="btn btn-primary btn-full-width">
+                {verifying ? 'Verifying...' : 'Submit'}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     );

@@ -16,6 +16,9 @@ const FolderDetail = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFavorites, setFilterFavorites] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedImages, setSelectedImages] = useState(new Set());
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchFolder();
@@ -151,14 +154,24 @@ const FolderDetail = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // Create a temporary link and trigger download
-        const link = document.createElement('a');
-        link.href = data.url;
-        link.download = data.filename || imageName;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+
+        // Check if user is on iOS/iPad
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if (isIOS) {
+          // For iOS devices, open in new tab for native save functionality
+          window.open(data.url, '_blank');
+        } else {
+          // For other devices, use download attribute
+          const link = document.createElement('a');
+          link.href = data.url;
+          link.download = data.filename || imageName;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
       } else {
         const data = await response.json();
         alert(data.error || 'Failed to download image');
@@ -175,6 +188,138 @@ const FolderDetail = () => {
   const closeLightbox = useCallback(() => {
     setSelectedImage(null);
   }, []);
+
+  // Check if user can delete images
+  const canDeleteImages = useCallback(() => {
+    // Admin can always delete
+    if (user?.role === 'admin') return true;
+
+    // Check folder permissions
+    if (folder) {
+      return folder.canWrite || folder.canDelete;
+    }
+
+    return false;
+  }, [user, folder]);
+
+  const toggleSelectionMode = useCallback(() => {
+    setSelectionMode(prev => !prev);
+    setSelectedImages(new Set());
+  }, []);
+
+  const toggleImageSelection = useCallback((imageId) => {
+    setSelectedImages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(imageId)) {
+        newSet.delete(imageId);
+      } else {
+        newSet.add(imageId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedImages(new Set(filteredImages.map(img => img._id)));
+  }, [filteredImages]);
+
+  const deselectAll = useCallback(() => {
+    setSelectedImages(new Set());
+  }, []);
+
+  const handleBulkDownload = useCallback(async () => {
+    if (selectedImages.size === 0) return;
+
+    const imagesToDownload = Array.from(selectedImages);
+    let successCount = 0;
+    let failCount = 0;
+
+    // Check if user is on iOS/iPad
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    for (const imageId of imagesToDownload) {
+      try {
+        const image = images.find(img => img._id === imageId);
+        if (!image) continue;
+
+        const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (isIOS) {
+            // For iOS, open each in new tab
+            window.open(data.url, '_blank');
+          } else {
+            // For other devices, use download attribute
+            const link = document.createElement('a');
+            link.href = data.url;
+            link.download = data.filename || image.originalName || image.filename;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+          successCount++;
+          // Add delay between downloads
+          await new Promise(resolve => setTimeout(resolve, 800));
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+      }
+    }
+
+    alert(`Downloaded ${successCount} image(s).${failCount > 0 ? ` ${failCount} failed.` : ''}`);
+    setSelectionMode(false);
+    setSelectedImages(new Set());
+  }, [selectedImages, images, apiUrl, token]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedImages.size === 0) return;
+
+    const count = selectedImages.size;
+    if (!window.confirm(`Are you sure you want to delete ${count} selected image(s)?`)) {
+      return;
+    }
+
+    const imagesToDelete = Array.from(selectedImages);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const imageId of imagesToDelete) {
+      try {
+        const response = await fetch(`${apiUrl}/api/images/${imageId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+      }
+    }
+
+    // Refresh images after deletion
+    await fetchImages();
+    alert(`Deleted ${successCount} image(s).${failCount > 0 ? ` ${failCount} failed.` : ''}`);
+    setSelectionMode(false);
+    setSelectedImages(new Set());
+  }, [selectedImages, apiUrl, token, fetchImages]);
 
   if (loading) {
     return (
@@ -243,7 +388,59 @@ const FolderDetail = () => {
           </svg>
           {filterFavorites ? 'Show All' : 'Favorites Only'}
         </button>
+
+        <button
+          className={`btn-select ${selectionMode ? 'active' : ''}`}
+          onClick={toggleSelectionMode}
+        >
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+          {selectionMode ? 'Cancel' : 'Select'}
+        </button>
       </div>
+
+      {selectionMode && (
+        <div className="bulk-actions-bar">
+          <div className="selection-info">
+            <span>{selectedImages.size} selected</span>
+            {selectedImages.size > 0 && selectedImages.size < filteredImages.length && (
+              <button className="btn-text" onClick={selectAll}>
+                Select All ({filteredImages.length})
+              </button>
+            )}
+            {selectedImages.size === filteredImages.length && filteredImages.length > 0 && (
+              <button className="btn-text" onClick={deselectAll}>
+                Deselect All
+              </button>
+            )}
+          </div>
+          <div className="bulk-actions">
+            <button
+              className="btn btn-primary"
+              onClick={handleBulkDownload}
+              disabled={selectedImages.size === 0}
+            >
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Download Selected
+            </button>
+            {canDeleteImages() && (
+              <button
+                className="btn btn-danger"
+                onClick={handleBulkDelete}
+                disabled={selectedImages.size === 0}
+              >
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete Selected
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {filteredImages.length === 0 ? (
         <div className="empty-state">
@@ -274,15 +471,28 @@ const FolderDetail = () => {
 
           <div className="images-grid">
             {filteredImages.map((image) => (
-              <div key={image._id} className="image-card">
-                <div className="image-container" onClick={() => openLightbox(image)}>
+              <div key={image._id} className={`image-card ${selectionMode && selectedImages.has(image._id) ? 'selected' : ''}`}>
+                {selectionMode && (
+                  <div className="image-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedImages.has(image._id)}
+                      onChange={() => toggleImageSelection(image._id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+                <div
+                  className="image-container"
+                  onClick={() => selectionMode ? toggleImageSelection(image._id) : openLightbox(image)}
+                >
                   <img
                     src={image.url}
                     alt={image.originalName || image.filename}
                     loading="lazy"
                   />
                   <div className="image-overlay">
-                    <span>View</span>
+                    <span>{selectionMode ? (selectedImages.has(image._id) ? 'Selected' : 'Select') : 'View'}</span>
                   </div>
                 </div>
 
@@ -314,15 +524,17 @@ const FolderDetail = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
                   </button>
-                  <button
-                    className="btn-delete"
-                    onClick={() => handleDelete(image._id)}
-                    title="Delete image"
-                  >
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  {canDeleteImages() && (
+                    <button
+                      className="btn-delete"
+                      onClick={() => handleDelete(image._id)}
+                      title="Delete image"
+                    >
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -332,7 +544,7 @@ const FolderDetail = () => {
 
       {selectedImage && (
         <div className="lightbox" onClick={closeLightbox}>
-          <div className="lightbox-content">
+          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={closeLightbox}>
               &times;
             </button>
@@ -344,6 +556,31 @@ const FolderDetail = () => {
               <p className="upload-date">
                 <strong>Date:</strong> {new Date(selectedImage.uploadDate).toLocaleString()}
               </p>
+            </div>
+            <div className="lightbox-actions">
+              <button
+                className="btn btn-primary"
+                onClick={() => handleDownload(selectedImage._id, selectedImage.originalName || selectedImage.filename)}
+              >
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download
+              </button>
+              {canDeleteImages() && (
+                <button
+                  className="btn btn-danger"
+                  onClick={() => {
+                    handleDelete(selectedImage._id);
+                    closeLightbox();
+                  }}
+                >
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete
+                </button>
+              )}
             </div>
           </div>
         </div>

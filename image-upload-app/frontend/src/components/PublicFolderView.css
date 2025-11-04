@@ -79,6 +79,84 @@
   font-weight: 400;
 }
 
+/* Password Prompt */
+.password-prompt {
+  max-width: 500px;
+  margin: 4rem auto;
+  text-align: center;
+}
+
+.password-prompt-content {
+  padding: 3rem 2.5rem;
+}
+
+.lock-icon {
+  color: #d946ef;
+  margin-bottom: 1.5rem;
+  opacity: 0.8;
+}
+
+.password-prompt h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+
+.password-prompt-subtitle {
+  color: #64748b;
+  font-size: 1rem;
+  margin: 0 0 2rem 0;
+  font-weight: 300;
+  line-height: 1.6;
+}
+
+.password-form {
+  text-align: left;
+}
+
+.password-form .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.password-form .form-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(249, 240, 255, 0.45) 100%);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  color: #64748b;
+  font-size: 0.95rem;
+  font-weight: 300;
+  transition: all 0.3s ease;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.password-form .form-input:focus {
+  outline: none;
+  border-color: rgba(236, 72, 153, 0.4);
+  box-shadow:
+    0 0 0 3px rgba(236, 72, 153, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.error-text {
+  color: #ef4444;
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0 0;
+  font-weight: 400;
+}
+
+.btn-full-width {
+  width: 100%;
+}
+
 /* Gallery Grid */
 .public-gallery-grid {
   display: grid;

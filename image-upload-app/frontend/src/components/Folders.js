@@ -16,9 +16,12 @@ const Folders = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [folderPassword, setFolderPassword] = useState('');
   const [creating, setCreating] = useState(false);
   const [managingFolder, setManagingFolder] = useState(null);
   const [copyMessage, setCopyMessage] = useState('');
+  const [deletingFolder, setDeletingFolder] = useState(null);
+  const [deleteProgress, setDeleteProgress] = useState('');
 
   useEffect(() => {
     fetchFolders();
@@ -64,7 +67,8 @@ const Folders = () => {
         credentials: 'include',
         body: JSON.stringify({
           name: newFolderName,
-          isPublic
+          isPublic,
+          password: folderPassword
         })
       });
 
@@ -75,6 +79,7 @@ const Folders = () => {
         setShowCreateModal(false);
         setNewFolderName('');
         setIsPublic(false);
+        setFolderPassword('');
       } else {
         setError(data.error || 'Failed to create folder');
       }
@@ -87,12 +92,29 @@ const Folders = () => {
   };
 
   const handleDeleteFolder = async (folderId) => {
-    if (!window.confirm('Are you sure you want to delete this folder?')) {
+    const folder = folders.find(f => f._id === folderId);
+    const imageCount = folder?.imageCount || 0;
+
+    const confirmMessage = imageCount > 0
+      ? `Are you sure you want to delete "${folder.name}"? This will permanently delete ${imageCount} ${imageCount === 1 ? 'image' : 'images'}.`
+      : `Are you sure you want to delete "${folder.name}"?`;
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
     try {
+      // Show deletion progress
+      setDeletingFolder(folder);
+      setDeleteProgress(`Preparing to delete folder...`);
+
       const token = localStorage.getItem('token');
+
+      // Update progress message
+      if (imageCount > 0) {
+        setDeleteProgress(`Deleting ${imageCount} ${imageCount === 1 ? 'image' : 'images'}...`);
+      }
+
       const response = await fetch(`${API_URL}/api/folders/${folderId}`, {
         method: 'DELETE',
         headers: {
@@ -102,13 +124,25 @@ const Folders = () => {
       });
 
       if (response.ok) {
-        setFolders(folders.filter(f => f._id !== folderId));
+        const data = await response.json();
+        setDeleteProgress(`Successfully deleted ${data.deletedImages || 0} ${data.deletedImages === 1 ? 'image' : 'images'}`);
+
+        // Wait a moment to show success message
+        setTimeout(() => {
+          setFolders(folders.filter(f => f._id !== folderId));
+          setDeletingFolder(null);
+          setDeleteProgress('');
+        }, 1000);
       } else {
         const data = await response.json();
+        setDeletingFolder(null);
+        setDeleteProgress('');
         alert(data.error || 'Failed to delete folder');
       }
     } catch (error) {
       console.error('Delete folder error:', error);
+      setDeletingFolder(null);
+      setDeleteProgress('');
       alert('Failed to delete folder');
     }
   };
@@ -195,8 +229,13 @@ const Folders = () => {
                     {folder.isPublic ? '🌐 Public' : '🔒 Private'}
                   </span>
                   <span className="folder-owner-badge">
-                    {folder.owner.username}
+                    👤 {folder.owner.username}
                   </span>
+                  {user.role === 'admin' && folder.owner._id !== user._id && (
+                    <span className="folder-admin-badge">
+                      ⚡ Admin Access
+                    </span>
+                  )}
                 </div>
                 {folder.isPublic && (
                   <button
@@ -227,7 +266,7 @@ const Folders = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </button>
-                  {folder.owner._id === user._id && (
+                  {(folder.owner._id === user._id || user.role === 'admin') && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -278,6 +317,21 @@ const Folders = () => {
                 <label htmlFor="isPublic">Make this folder public</label>
               </div>
 
+              {isPublic && (
+                <div className="form-group">
+                  <label htmlFor="folderPassword">Password (Optional)</label>
+                  <input
+                    type="password"
+                    id="folderPassword"
+                    value={folderPassword}
+                    onChange={(e) => setFolderPassword(e.target.value)}
+                    placeholder="Leave blank for no password"
+                    className="form-input"
+                  />
+                  <p className="form-hint">Add a password to restrict access to this public folder</p>
+                </div>
+              )}
+
               <div className="modal-actions">
                 <button
                   type="button"
@@ -324,6 +378,22 @@ const Folders = () => {
             fetchUpdatedFolder();
           }}
         />
+      )}
+
+      {/* Deletion Progress Modal */}
+      {deletingFolder && (
+        <div className="modal-overlay">
+          <div className="modal-content soft-card deletion-progress-modal">
+            <h2 className="gradient-text">Deleting Folder</h2>
+            <div className="deletion-info">
+              <h3>{deletingFolder.name}</h3>
+              <div className="spinner-container">
+                <div className="spinner"></div>
+              </div>
+              <p className="delete-progress-message">{deleteProgress}</p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

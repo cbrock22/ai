@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const bcrypt = require('bcryptjs');
 const Folder = require('../models/Folder');
 const Image = require('../models/Image');
 const { authenticateToken } = require('../middleware/auth');
@@ -22,7 +23,64 @@ const s3Client = USE_S3 ? new S3Client({
 const S3_BUCKET = process.env.S3_BUCKET_NAME;
 const uploadsDir = join(__dirname, '../uploads');
 
-// Public folder viewing route (no authentication required)
+// Check if public folder requires password
+router.get('/public/:folderId/check', async (req, res) => {
+  try {
+    const folder = await Folder.findById(req.params.folderId).select('+password');
+
+    if (!folder) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    if (!folder.isPublic) {
+      return res.status(403).json({ error: 'This folder is not public' });
+    }
+
+    res.json({
+      requiresPassword: !!folder.password,
+      name: folder.name,
+      owner: folder.owner
+    });
+  } catch (error) {
+    console.error('Check public folder error:', error);
+    res.status(500).json({ error: 'Failed to check folder' });
+  }
+});
+
+// Verify password for public folder
+router.post('/public/:folderId/verify', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const folder = await Folder.findById(req.params.folderId).select('+password');
+
+    if (!folder) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    if (!folder.isPublic) {
+      return res.status(403).json({ error: 'This folder is not public' });
+    }
+
+    // If folder has no password, access is granted
+    if (!folder.password) {
+      return res.json({ verified: true });
+    }
+
+    // Check password
+    const isValid = await bcrypt.compare(password, folder.password);
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Incorrect password' });
+    }
+
+    res.json({ verified: true });
+  } catch (error) {
+    console.error('Verify password error:', error);
+    res.status(500).json({ error: 'Failed to verify password' });
+  }
+});
+
+// Public folder viewing route (no authentication required, but may need password)
 router.get('/public/:folderId', async (req, res) => {
   try {
     const folder = await Folder.findById(req.params.folderId)
@@ -68,13 +126,18 @@ router.use(authenticateToken);
 // Get all folders accessible by user
 router.get('/', async (req, res) => {
   try {
-    const folders = await Folder.find({
-      $or: [
-        { owner: req.user._id },
-        { isPublic: true },
-        { 'permissions.user': req.user._id }
-      ]
-    })
+    // Admins can see all folders
+    const query = req.user.role === 'admin'
+      ? {}
+      : {
+          $or: [
+            { owner: req.user._id },
+            { isPublic: true },
+            { 'permissions.user': req.user._id }
+          ]
+        };
+
+    const folders = await Folder.find(query)
     .populate('owner', 'username email')
     .sort({ createdAt: -1 });
 
@@ -107,13 +170,16 @@ router.get('/', async (req, res) => {
         const isOwner = folder.owner._id.toString() === req.user._id.toString();
         const isAdmin = req.user.role === 'admin';
         const userPermission = folder.permissions.find(
-          p => p.user.toString() === req.user._id.toString()
+          p => p.user && p.user.toString() === req.user._id.toString()
         );
 
-        folderObj.canWrite = isOwner || isAdmin ||
+        // Admins have full permissions on all folders
+        folderObj.canWrite = isAdmin || isOwner ||
           (userPermission && ['write', 'admin'].includes(userPermission.access));
-        folderObj.canDelete = isOwner || isAdmin ||
+        folderObj.canDelete = isAdmin || isOwner ||
           (userPermission && userPermission.access === 'admin');
+        folderObj.isOwner = isOwner;
+        folderObj.isAdmin = isAdmin;
 
         return folderObj;
       })
@@ -138,7 +204,7 @@ router.post('/',
     }
 
     try {
-      const { name, isPublic } = req.body;
+      const { name, isPublic, password } = req.body;
 
       // Check if folder already exists for this user
       const existingFolder = await Folder.findOne({
@@ -150,18 +216,29 @@ router.post('/',
         return res.status(400).json({ error: 'Folder already exists' });
       }
 
-      const folder = new Folder({
+      const folderData = {
         name,
         owner: req.user._id,
         isPublic: isPublic || false
-      });
+      };
+
+      // Hash password if provided
+      if (password && password.trim()) {
+        folderData.password = await bcrypt.hash(password, 10);
+      }
+
+      const folder = new Folder(folderData);
 
       await folder.save();
       await folder.populate('owner', 'username email');
 
+      // Don't send password back
+      const folderResponse = folder.toObject();
+      delete folderResponse.password;
+
       res.status(201).json({
         message: 'Folder created successfully',
-        folder
+        folder: folderResponse
       });
     } catch (error) {
       console.error('Create folder error:', error);
@@ -195,17 +272,28 @@ router.put('/:folderId',
     }
 
     try {
-      const { name, isPublic } = req.body;
+      const { name, isPublic, password, removePassword } = req.body;
 
       if (name) req.folder.name = name;
       if (typeof isPublic !== 'undefined') req.folder.isPublic = isPublic;
 
+      // Handle password changes
+      if (removePassword) {
+        req.folder.password = undefined;
+      } else if (password && password.trim()) {
+        req.folder.password = await bcrypt.hash(password, 10);
+      }
+
       await req.folder.save();
       await req.folder.populate('owner', 'username email');
 
+      // Don't send password back
+      const folderResponse = req.folder.toObject();
+      delete folderResponse.password;
+
       res.json({
         message: 'Folder updated successfully',
-        folder: req.folder
+        folder: folderResponse
       });
     } catch (error) {
       console.error('Update folder error:', error);

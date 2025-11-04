@@ -102,7 +102,7 @@ if (!USE_S3 && !existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true}
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:5000',
   credentials: true
 }));
 app.use(express.json({ limit: '1mb' }));

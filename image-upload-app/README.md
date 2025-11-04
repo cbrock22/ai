@@ -57,7 +57,12 @@ cd path\to\image-upload-app
 start.bat
 ```
 
-**Access:** http://localhost:3000
+**Access:** http://localhost:5000
+
+**Ports Used:**
+- Frontend: http://localhost:5000
+- Backend API: http://localhost:5001
+- Mongo Express (DB Admin): http://localhost:8081
 
 **That's it!** MongoDB, backend, and frontend are all running in Docker containers.
 
