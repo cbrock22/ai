@@ -49,13 +49,13 @@ services:
     container_name: image-upload-backend-dev
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "5001:3001"
     environment:
       NODE_ENV: development
       PORT: 3001
       MONGODB_URI: mongodb://admin:admin123@mongodb:27017/image-upload-app?authSource=admin
       JWT_SECRET: dev-secret-key-change-in-production
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:5000
       USE_S3: "false"
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-cbro}
       DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-cole.brock@gmail.com}
@@ -78,9 +78,9 @@ services:
     container_name: image-upload-frontend-dev
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "5000:3000"
     environment:
-      REACT_APP_API_URL: http://localhost:3001
+      REACT_APP_API_URL: http://localhost:5001
       CHOKIDAR_USEPOLLING: "true"
     volumes:
       - ./frontend:/app

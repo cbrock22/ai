@@ -27,10 +27,15 @@ echo.
 echo Starting services...
 echo.
 echo This will:
-echo   - Start MongoDB
-echo   - Start Mongo Express (DB admin)
-echo   - Start Backend API
-echo   - Start Frontend
+echo   - Start MongoDB (port 27017)
+echo   - Start Mongo Express (http://localhost:8081)
+echo   - Start Backend API (http://localhost:5001)
+echo   - Start Frontend (http://localhost:5000)
+echo.
+echo ========================================
+echo   ACCESS YOUR APP AT:
+echo   http://localhost:5000
+echo ========================================
 echo.
 
 docker-compose -f docker-compose.dev.yml up --build
