@@ -76,7 +76,7 @@ jobs:
 
     - name: Copy files to Lightsail
       run: |
-        rsync -avz --delete -e "ssh -i ~/.ssh/lightsail_key -o StrictHostKeyChecking=no" \
+        rsync -avz --delete --exclude=certbot/ -e "ssh -i ~/.ssh/lightsail_key -o StrictHostKeyChecking=no" \
           image-upload-app/ \
           ${{ secrets.LIGHTSAIL_USERNAME }}@${{ secrets.LIGHTSAIL_HOST }}:/home/${{ secrets.LIGHTSAIL_USERNAME }}/image-upload-app/
 
