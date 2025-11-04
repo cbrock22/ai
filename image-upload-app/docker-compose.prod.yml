@@ -51,17 +51,22 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Certbot for Let's Encrypt SSL certificates
+  # Certbot for Let's Encrypt SSL certificates with auto-renewal
   certbot:
     image: certbot/certbot:latest
     container_name: image-upload-certbot
     volumes:
       - ./certbot/www:/var/www/certbot:rw
       - ./certbot/conf:/etc/letsencrypt:rw
-    # Certbot will run as needed via command line, not as a service
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    # Auto-renewal: Check twice daily and renew if needed (within 30 days of expiry)
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet --deploy-hook \"echo Certificate renewed at $$(date)\"; sleep 12h & wait $${!}; done;'"
     networks:
       - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Backend API + Frontend (Production)
   backend:
