@@ -138,6 +138,117 @@ router.post('/',
   }
 );
 
+// Bulk upload endpoint - accepts multiple files, processes asynchronously
+router.post('/bulk',
+  upload.array('images', 20),  // Accept up to 20 images
+  checkFolderAccess('write'),
+  async (req, res) => {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const uploadId = `upload-${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+
+    // Return immediately with 202 Accepted
+    res.status(202).json({
+      uploadId,
+      message: 'Upload accepted, processing in background',
+      totalFiles: req.files.length
+    });
+
+    // Process files asynchronously without blocking
+    setImmediate(async () => {
+      const results = [];
+
+      for (const file of req.files) {
+        try {
+          // Get original file extension
+          const originalExt = file.originalname.split('.').pop().toLowerCase();
+          const originalFilename = generateFilename(originalExt);
+          const compressedFilename = generateFilename('jpg');
+
+          // Since client already compressed, we can skip heavy compression
+          // Just ensure proper format and size limits
+          const compressedBuffer = await sharp(file.buffer)
+            .rotate()
+            .resize(2400, 2400, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 85, progressive: true, mozjpeg: true })
+            .toBuffer();
+
+          let url, originalUrl;
+
+          if (USE_S3) {
+            // Upload compressed version to S3
+            const compressedUpload = new Upload({
+              client: s3Client,
+              params: {
+                Bucket: S3_BUCKET,
+                Key: compressedFilename,
+                Body: compressedBuffer,
+                ContentType: 'image/jpeg',
+                CacheControl: 'max-age=604800'
+              }
+            });
+
+            // Upload original uncompressed version to S3
+            const originalUpload = new Upload({
+              client: s3Client,
+              params: {
+                Bucket: S3_BUCKET,
+                Key: originalFilename,
+                Body: file.buffer,
+                ContentType: file.mimetype,
+                CacheControl: 'max-age=604800'
+              }
+            });
+
+            await Promise.all([compressedUpload.done(), originalUpload.done()]);
+
+            url = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${compressedFilename}`;
+            originalUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${originalFilename}`;
+          } else {
+            // Save both versions locally
+            const fs = require('fs').promises;
+            await Promise.all([
+              fs.writeFile(join(uploadsDir, compressedFilename), compressedBuffer),
+              fs.writeFile(join(uploadsDir, originalFilename), file.buffer)
+            ]);
+
+            const protocol = 'http'; // Default for local
+            const host = `localhost:${process.env.PORT || 3001}`;
+            url = `${protocol}://${host}/uploads/${compressedFilename}`;
+            originalUrl = `${protocol}://${host}/uploads/${originalFilename}`;
+          }
+
+          // Save to database
+          const image = new Image({
+            filename: compressedFilename,
+            originalName: file.originalname,
+            url,
+            originalFilename,
+            originalUrl,
+            originalSize: file.size,
+            folder: req.folder._id,
+            uploadedBy: req.user._id,
+            size: compressedBuffer.length,
+            processingStatus: 'completed'
+          });
+
+          await image.save();
+          results.push({ success: true, filename: file.originalname });
+          console.log(`[BulkUpload] ${uploadId}: Processed ${file.originalname}`);
+        } catch (error) {
+          console.error(`[BulkUpload] ${uploadId}: Failed ${file.originalname}:`, error);
+          results.push({ success: false, filename: file.originalname, error: error.message });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      console.log(`[BulkUpload] ${uploadId}: Complete - ${successCount}/${req.files.length} succeeded`);
+    });
+  }
+);
+
 // Get images in a folder
 router.get('/folder/:folderId', checkFolderAccess('read'), async (req, res) => {
   try {

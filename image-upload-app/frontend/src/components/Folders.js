@@ -16,6 +16,7 @@ const Folders = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [displayOnPublicGallery, setDisplayOnPublicGallery] = useState(false);
   const [folderPassword, setFolderPassword] = useState('');
   const [creating, setCreating] = useState(false);
   const [managingFolder, setManagingFolder] = useState(null);
@@ -68,6 +69,7 @@ const Folders = () => {
         body: JSON.stringify({
           name: newFolderName,
           isPublic,
+          displayOnPublicGallery,
           password: folderPassword
         })
       });
@@ -79,6 +81,7 @@ const Folders = () => {
         setShowCreateModal(false);
         setNewFolderName('');
         setIsPublic(false);
+        setDisplayOnPublicGallery(false);
         setFolderPassword('');
       } else {
         setError(data.error || 'Failed to create folder');
@@ -311,25 +314,46 @@ const Folders = () => {
                   type="checkbox"
                   id="isPublic"
                   checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
+                  onChange={(e) => {
+                    setIsPublic(e.target.checked);
+                    if (!e.target.checked) {
+                      setDisplayOnPublicGallery(false);
+                    }
+                  }}
                   className="form-checkbox"
                 />
                 <label htmlFor="isPublic">Make this folder public</label>
               </div>
 
               {isPublic && (
-                <div className="form-group">
-                  <label htmlFor="folderPassword">Password (Optional)</label>
-                  <input
-                    type="password"
-                    id="folderPassword"
-                    value={folderPassword}
-                    onChange={(e) => setFolderPassword(e.target.value)}
-                    placeholder="Leave blank for no password"
-                    className="form-input"
-                  />
-                  <p className="form-hint">Add a password to restrict access to this public folder</p>
-                </div>
+                <>
+                  <div className="form-group-checkbox">
+                    <input
+                      type="checkbox"
+                      id="displayOnPublicGallery"
+                      checked={displayOnPublicGallery}
+                      onChange={(e) => setDisplayOnPublicGallery(e.target.checked)}
+                      className="form-checkbox"
+                    />
+                    <label htmlFor="displayOnPublicGallery">Display on Public Gallery</label>
+                  </div>
+                  <p className="form-hint" style={{ marginTop: '-8px', marginLeft: '24px' }}>
+                    Featured folders will appear on the app's landing page
+                  </p>
+
+                  <div className="form-group">
+                    <label htmlFor="folderPassword">Password (Optional)</label>
+                    <input
+                      type="password"
+                      id="folderPassword"
+                      value={folderPassword}
+                      onChange={(e) => setFolderPassword(e.target.value)}
+                      placeholder="Leave blank for no password"
+                      className="form-input"
+                    />
+                    <p className="form-hint">Add a password to restrict access to this public folder</p>
+                  </div>
+                </>
               )}
 
               <div className="modal-actions">

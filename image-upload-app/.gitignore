@@ -74,8 +74,14 @@ coverage/
 !**/README.md
 !**/DEPLOY*.md
 !**/*.example
+!**/*.example.md
 
-# Documentation files (may contain sensitive setup info)
+# Documentation files with REAL CREDENTIALS - NEVER COMMIT THESE!
+docs/ADMIN_CREDENTIALS.md
+docs/YOUR_S3_CONFIG.md
+docs/GITHUB_SECRETS_SETUP.md
+
+# Other documentation files (may contain sensitive examples)
 ADMIN_CREDENTIALS.md
 ADMIN_VIEW_TOGGLE.md
 AUTHENTICATION_SETUP.md

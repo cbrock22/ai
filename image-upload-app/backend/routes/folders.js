@@ -80,6 +80,55 @@ router.post('/public/:folderId/verify', async (req, res) => {
   }
 });
 
+// Get folders for public gallery (no authentication required)
+router.get('/public-gallery', async (req, res) => {
+  try {
+    // Find all folders marked for public gallery display
+    const folders = await Folder.find({
+      isPublic: true,
+      displayOnPublicGallery: true
+    })
+    .populate('owner', 'username email')
+    .sort({ createdAt: -1 });
+
+    // Enhance folders with image counts and preview images (10 images)
+    const foldersWithImages = await Promise.all(
+      folders.map(async (folder) => {
+        const folderObj = folder.toObject();
+
+        // Get image count
+        folderObj.imageCount = await Image.countDocuments({ folder: folder._id });
+
+        // Get first 10 images for preview
+        const previewImages = await Image.find({ folder: folder._id })
+          .select('url filename thumbnailUrl')
+          .limit(10)
+          .sort({ uploadDate: -1 });
+
+        // Ensure URLs are absolute
+        const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
+        folderObj.previewImages = previewImages.map(img => {
+          const imgObj = img.toObject();
+          if (imgObj.url && imgObj.url.startsWith('/uploads/')) {
+            imgObj.url = `${backendUrl}${imgObj.url}`;
+          }
+          if (imgObj.thumbnailUrl && imgObj.thumbnailUrl.startsWith('/uploads/')) {
+            imgObj.thumbnailUrl = `${backendUrl}${imgObj.thumbnailUrl}`;
+          }
+          return imgObj;
+        });
+
+        return folderObj;
+      })
+    );
+
+    res.json(foldersWithImages);
+  } catch (error) {
+    console.error('Get public gallery folders error:', error);
+    res.status(500).json({ error: 'Failed to fetch public gallery folders' });
+  }
+});
+
 // Public folder viewing route (no authentication required, but may need password)
 router.get('/public/:folderId', async (req, res) => {
   try {
@@ -204,7 +253,7 @@ router.post('/',
     }
 
     try {
-      const { name, isPublic, password } = req.body;
+      const { name, isPublic, displayOnPublicGallery, password } = req.body;
 
       // Check if folder already exists for this user
       const existingFolder = await Folder.findOne({
@@ -219,7 +268,8 @@ router.post('/',
       const folderData = {
         name,
         owner: req.user._id,
-        isPublic: isPublic || false
+        isPublic: isPublic || false,
+        displayOnPublicGallery: displayOnPublicGallery || false
       };
 
       // Hash password if provided
@@ -272,10 +322,11 @@ router.put('/:folderId',
     }
 
     try {
-      const { name, isPublic, password, removePassword } = req.body;
+      const { name, isPublic, displayOnPublicGallery, password, removePassword } = req.body;
 
       if (name) req.folder.name = name;
       if (typeof isPublic !== 'undefined') req.folder.isPublic = isPublic;
+      if (typeof displayOnPublicGallery !== 'undefined') req.folder.displayOnPublicGallery = displayOnPublicGallery;
 
       // Handle password changes
       if (removePassword) {

@@ -7,21 +7,48 @@ const imageSchema = new mongoose.Schema({
     unique: true
   },
   originalName: {
-    type: String
-  },
-  url: {
     type: String,
     required: true
   },
-  originalFilename: {
-    type: String
-  },
+
+  // ORIGINAL: WebP Lossless (full resolution) - for download
   originalUrl: {
-    type: String
+    type: String,
+    required: true
   },
   originalSize: {
+    type: Number,
+    required: true
+  },
+  originalWidth: {
     type: Number
   },
+  originalHeight: {
+    type: Number
+  },
+
+  // DISPLAY: WebP Lossless (2400x2400 max) - for lightbox viewing
+  displayUrl: {
+    type: String,
+    required: true
+  },
+  displaySize: {
+    type: Number,
+    required: true
+  },
+
+  // THUMBNAIL: WebP Lossy (300x300) - for gallery grid (generated async)
+  thumbnailUrl: {
+    type: String
+  },
+  thumbnailSize: {
+    type: Number
+  },
+  thumbnailGeneratedAt: {
+    type: Date
+  },
+
+  // Metadata
   folder: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Folder',
@@ -32,9 +59,6 @@ const imageSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  size: {
-    type: Number
-  },
   uploadDate: {
     type: Date,
     default: Date.now
@@ -42,7 +66,25 @@ const imageSchema = new mongoose.Schema({
   favoritedBy: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }]
+  }],
+
+  // Processing status
+  processingStatus: {
+    type: String,
+    enum: ['pending', 'completed', 'failed'],
+    default: 'pending'
+  },
+
+  // DEPRECATED: Remove these in future migration
+  url: {
+    type: String
+  },
+  originalFilename: {
+    type: String
+  },
+  size: {
+    type: Number
+  }
 });
 
 module.exports = mongoose.model('Image', imageSchema);

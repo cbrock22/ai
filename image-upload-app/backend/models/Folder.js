@@ -26,6 +26,10 @@ const folderSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  displayOnPublicGallery: {
+    type: Boolean,
+    default: false
+  },
   password: {
     type: String,
     select: false  // Don't include password in queries by default

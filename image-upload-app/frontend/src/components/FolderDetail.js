@@ -20,16 +20,7 @@ const FolderDetail = () => {
   const [selectedImages, setSelectedImages] = useState(new Set());
   const { user } = useAuth();
 
-  useEffect(() => {
-    fetchFolder();
-    fetchImages();
-  }, [folderId]);
-
-  useEffect(() => {
-    filterAndSortImages();
-  }, [images, searchQuery, filterFavorites]);
-
-  const fetchFolder = async () => {
+  const fetchFolder = useCallback(async () => {
     try {
       const response = await fetch(`${apiUrl}/api/folders/${folderId}`, {
         headers: {
@@ -47,9 +38,9 @@ const FolderDetail = () => {
     } catch (err) {
       setError('Failed to load folder');
     }
-  };
+  }, [apiUrl, folderId, token]);
 
-  const fetchImages = async () => {
+  const fetchImages = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`${apiUrl}/api/images/folder/${folderId}`, {
@@ -72,9 +63,9 @@ const FolderDetail = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiUrl, folderId, token]);
 
-  const filterAndSortImages = () => {
+  const filterAndSortImages = useCallback(() => {
     let filtered = [...images];
 
     // Apply search filter
@@ -92,7 +83,16 @@ const FolderDetail = () => {
     }
 
     setFilteredImages(filtered);
-  };
+  }, [images, searchQuery, filterFavorites]);
+
+  useEffect(() => {
+    fetchFolder();
+    fetchImages();
+  }, [fetchFolder, fetchImages]);
+
+  useEffect(() => {
+    filterAndSortImages();
+  }, [filterAndSortImages]);
 
   const toggleFavorite = useCallback(async (imageId, currentStatus) => {
     try {

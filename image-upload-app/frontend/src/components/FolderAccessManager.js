@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './FolderAccessManager.css';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
@@ -9,12 +9,11 @@ const FolderAccessManager = ({ folder, onClose, onUpdate }) => {
   const [selectedAccess, setSelectedAccess] = useState('read');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isPublic, setIsPublic] = useState(folder.isPublic || false);
+  const [displayOnPublicGallery, setDisplayOnPublicGallery] = useState(folder.displayOnPublicGallery || false);
+  const [settingsChanged, setSettingsChanged] = useState(false);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/auth/users`, {
@@ -35,7 +34,11 @@ const FolderAccessManager = ({ folder, onClose, onUpdate }) => {
     } catch (err) {
       setError('Failed to load users');
     }
-  };
+  }, [folder.permissions, folder.owner._id]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleAddUser = async () => {
     if (!selectedUser) {
@@ -147,6 +150,52 @@ const FolderAccessManager = ({ folder, onClose, onUpdate }) => {
     }
   };
 
+  const handleUpdateSettings = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/folders/${folder._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          isPublic,
+          displayOnPublicGallery
+        })
+      });
+
+      if (response.ok) {
+        setSettingsChanged(false);
+        onUpdate(); // Refresh folder data
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to update settings');
+      }
+    } catch (err) {
+      setError('Failed to update settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleIsPublicChange = (checked) => {
+    setIsPublic(checked);
+    setSettingsChanged(true);
+    // If making private, also disable public gallery display
+    if (!checked) {
+      setDisplayOnPublicGallery(false);
+    }
+  };
+
+  const handleDisplayOnPublicGalleryChange = (checked) => {
+    setDisplayOnPublicGallery(checked);
+    setSettingsChanged(true);
+  };
+
   return (
     <div className="folder-access-overlay">
       <div className="folder-access-modal">
@@ -158,6 +207,50 @@ const FolderAccessManager = ({ folder, onClose, onUpdate }) => {
         {error && <div className="error-message">{error}</div>}
 
         <div className="folder-access-content">
+          {/* Folder Settings */}
+          <div className="access-section settings-section">
+            <h3>Folder Settings</h3>
+            <div className="settings-form">
+              <div className="setting-item">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => handleIsPublicChange(e.target.checked)}
+                    disabled={loading}
+                  />
+                  <span>Make this folder public</span>
+                </label>
+                <p className="setting-description">Public folders can be accessed by anyone with the link</p>
+              </div>
+
+              {isPublic && (
+                <div className="setting-item">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={displayOnPublicGallery}
+                      onChange={(e) => handleDisplayOnPublicGalleryChange(e.target.checked)}
+                      disabled={loading}
+                    />
+                    <span>Display on Public Gallery</span>
+                  </label>
+                  <p className="setting-description">Featured folders appear on the app's landing page with image previews</p>
+                </div>
+              )}
+
+              {settingsChanged && (
+                <button
+                  onClick={handleUpdateSettings}
+                  disabled={loading}
+                  className="save-settings-button"
+                >
+                  {loading ? 'Saving...' : 'Save Settings'}
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Current Access List */}
           <div className="access-section">
             <h3>Current Access</h3>
