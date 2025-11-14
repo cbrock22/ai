@@ -1,7 +1,37 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useInView } from 'react-intersection-observer';
 import { useAuth } from '../context/AuthContext';
 import '../common.css';
 import './Gallery.css';
+
+// Lazy-loading image component
+const LazyImage = ({ image, alt, onClick, selectionMode, isSelected }) => {
+  const { ref, inView } = useInView({
+    triggerOnce: true,
+    threshold: 0.1,
+    rootMargin: '200px' // Load 200px before visible
+  });
+
+  // Use thumbnail if available, fall back to full image
+  const imageSrc = inView ? (image.thumbnailUrl || image.url) : null;
+
+  return (
+    <div ref={ref} className="image-container" onClick={onClick}>
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt={alt}
+          loading="lazy"
+        />
+      ) : (
+        <div className="image-placeholder" style={{ background: '#f0f0f0', aspectRatio: '1' }}></div>
+      )}
+      <div className="image-overlay">
+        <span>{selectionMode ? (isSelected ? 'Selected' : 'Select') : 'View'}</span>
+      </div>
+    </div>
+  );
+};
 
 const Gallery = () => {
   const { token, apiUrl, user } = useAuth();
@@ -465,19 +495,13 @@ const Gallery = () => {
                             />
                           </div>
                         )}
-                        <div
-                          className="image-container"
+                        <LazyImage
+                          image={image}
+                          alt={image.originalName || image.filename}
                           onClick={() => selectionMode ? toggleImageSelection(image._id) : openLightbox(image)}
-                        >
-                          <img
-                            src={image.url}
-                            alt={image.originalName || image.filename}
-                            loading="lazy"
-                          />
-                          <div className="image-overlay">
-                            <span>{selectionMode ? (selectedImages.has(image._id) ? 'Selected' : 'Select') : 'View'}</span>
-                          </div>
-                        </div>
+                          selectionMode={selectionMode}
+                          isSelected={selectedImages.has(image._id)}
+                        />
                         <div className="image-info">
                           <p className="image-uploader">
                             By: {image.uploadedBy?.username || 'Unknown'}
@@ -544,19 +568,13 @@ const Gallery = () => {
                       />
                     </div>
                   )}
-                  <div
-                    className="image-container"
+                  <LazyImage
+                    image={image}
+                    alt={image.originalName || image.filename}
                     onClick={() => selectionMode ? toggleImageSelection(image._id) : openLightbox(image)}
-                  >
-                    <img
-                      src={image.url}
-                      alt={image.originalName || image.filename}
-                      loading="lazy"
-                    />
-                    <div className="image-overlay">
-                      <span>{selectionMode ? (selectedImages.has(image._id) ? 'Selected' : 'Select') : 'View'}</span>
-                    </div>
-                  </div>
+                    selectionMode={selectionMode}
+                    isSelected={selectedImages.has(image._id)}
+                  />
                   <div className="image-info">
                     <p className="image-folder">
                       {image.folder?.name || 'Unknown Folder'}

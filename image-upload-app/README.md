@@ -84,12 +84,14 @@ npm run start:dev
 
 | Guide | When to Use |
 |-------|-------------|
-| [**Quick Start**](./DOCKER_QUICK_START.md) | Get running in 3 minutes |
-| [**Windows Setup**](./WINDOWS_SETUP.md) | Windows-specific help |
-| [**Docker Guide**](./DOCKER_SETUP.md) | Complete Docker docs |
-| [**Authentication**](./AUTHENTICATION_SETUP.md) | User & permission setup |
-| [**Deploy Quick**](./DEPLOY_QUICK.md) | Deploy in 15 minutes |
-| [**Architecture**](./ARCHITECTURE.md) | System design |
+| [**Quick Start**](./docs/DOCKER_QUICK_START.md) | Get running in 3 minutes |
+| [**Windows Setup**](./docs/WINDOWS_SETUP.md) | Windows-specific help |
+| [**Docker Guide**](./docs/DOCKER_SETUP.md) | Complete Docker docs |
+| [**Authentication**](./docs/AUTHENTICATION_SETUP.md) | User & permission setup |
+| [**Deploy Quick**](./docs/DEPLOY_QUICK.md) | Deploy in 15 minutes |
+| [**Architecture**](./docs/ARCHITECTURE.md) | System design |
+
+> 📂 [**View All Documentation**](./docs/) - Complete list of guides and references
 
 ## 📦 What's Included
 
@@ -120,6 +122,7 @@ image-upload-app/
 │       ├── components/   # React components
 │       ├── context/      # Auth context
 │       └── App.js
+├── docs/                 # Documentation files
 ├── scripts/              # Helper scripts
 │   ├── deploy.sh        # Production deployment
 │   ├── backup-prod.sh   # Database backup
@@ -194,7 +197,7 @@ nano .env  # Add your passwords and settings
 
 **Cost:** $10/month (includes MongoDB, no separate database needed!)
 
-See the [Quick Deploy Guide](./DEPLOY_QUICK.md) for complete instructions.
+See the [Quick Deploy Guide](./docs/DEPLOY_QUICK.md) for complete instructions.
 
 ### Option 2: Any Docker-Compatible Host
 
@@ -402,8 +405,8 @@ docker compose -f docker-compose.prod.yml restart  # Restart services
 ## 🐛 Troubleshooting
 
 ### Docker Issues
-- **Windows:** See [WINDOWS_SETUP.md](./WINDOWS_SETUP.md)
-- **General:** See [DOCKER_SETUP.md](./DOCKER_SETUP.md)
+- **Windows:** See [WINDOWS_SETUP.md](./docs/WINDOWS_SETUP.md)
+- **General:** See [DOCKER_SETUP.md](./docs/DOCKER_SETUP.md)
 
 ### Can't Access App?
 ```bash
@@ -446,7 +449,7 @@ Contributions welcome! Please:
 
 ## 🆘 Support
 
-- 📖 [Documentation](./DOCKER_SETUP.md)
+- 📖 [Documentation](./docs/)
 - 🐛 [Report Issues](https://github.com/yourusername/image-upload-app/issues)
 - 💬 [Discussions](https://github.com/yourusername/image-upload-app/discussions)
 
@@ -456,4 +459,4 @@ Contributions welcome! Please:
 
 **Start developing:** `start.bat`
 
-**Deploy to production:** [Quick Deploy Guide](./DEPLOY_QUICK.md) (15 minutes, $10/month)
+**Deploy to production:** [Quick Deploy Guide](./docs/DEPLOY_QUICK.md) (15 minutes, $10/month)

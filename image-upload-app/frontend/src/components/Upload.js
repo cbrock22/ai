@@ -88,7 +88,7 @@ const Upload = () => {
     }
   }, [createPreview, uploadMode]);
 
-  const uploadSingleFile = async (file, index = null) => {
+  const uploadSingleFile = async (file) => {
     const formData = new FormData();
     formData.append('image', file);
     formData.append('folderId', selectedFolder);
@@ -128,12 +128,12 @@ const Upload = () => {
       }
 
       setUploading(true);
-      setMessage('');
+      setMessage('Uploading...');
 
       const result = await uploadSingleFile(selectedFile);
 
       if (result.success) {
-        setMessage('Image uploaded successfully!');
+        setMessage('Image uploaded successfully! Processing lossless versions...');
         setSelectedFile(null);
         setPreview(null);
         document.getElementById('file-input').value = '';
@@ -142,7 +142,7 @@ const Upload = () => {
       }
       setUploading(false);
     } else {
-      // Batch upload
+      // Batch upload with parallel chunks (no client-side compression)
       if (selectedFiles.length === 0) {
         setMessage('Please select files first');
         return;
@@ -154,29 +154,45 @@ const Upload = () => {
       }
 
       setUploading(true);
-      setMessage('');
+      setMessage('Uploading original quality images...');
       setUploadProgress([]);
 
-      // Upload in batches of 5 for better performance
-      const batchSize = 5;
+      // Upload in parallel chunks
+      // Chunk size: 20 files per request
+      // Parallel chunks: 3 concurrent requests
+      const chunkSize = 20;
+      const parallelChunks = 3;
       const results = [];
 
-      for (let i = 0; i < selectedFiles.length; i += batchSize) {
-        const batch = selectedFiles.slice(i, i + batchSize);
-        setCurrentlyUploading(Math.min(i + batchSize, selectedFiles.length));
+      for (let i = 0; i < selectedFiles.length; i += chunkSize * parallelChunks) {
+        const chunks = [];
 
-        // Upload batch in parallel
-        const batchPromises = batch.map(file => uploadSingleFile(file));
-        const batchResults = await Promise.all(batchPromises);
+        // Create up to 3 chunks to upload in parallel
+        for (let j = 0; j < parallelChunks; j++) {
+          const start = i + (j * chunkSize);
+          const chunk = selectedFiles.slice(start, start + chunkSize);
 
-        results.push(...batchResults);
-        setUploadProgress(prev => [...prev, ...batchResults]);
+          if (chunk.length > 0) {
+            // Upload chunk in parallel (all files in chunk upload together)
+            const chunkPromise = Promise.all(chunk.map(file => uploadSingleFile(file)))
+              .then(chunkResults => {
+                results.push(...chunkResults);
+                setUploadProgress(prev => [...prev, ...chunkResults]);
+                setCurrentlyUploading(results.length);
+                return chunkResults;
+              });
+            chunks.push(chunkPromise);
+          }
+        }
+
+        // Wait for all parallel chunks to complete before next batch
+        await Promise.all(chunks);
       }
 
       const successCount = results.filter(r => r.success).length;
       const failCount = results.length - successCount;
 
-      setMessage(`Upload complete: ${successCount} succeeded${failCount > 0 ? `, ${failCount} failed` : ''}`);
+      setMessage(`Upload complete: ${successCount} succeeded${failCount > 0 ? `, ${failCount} failed` : ''}. Server processing lossless versions...`);
       setUploading(false);
       setCurrentlyUploading(0);
 

@@ -7,6 +7,7 @@ import Login from './components/Login';
 import Signup from './components/Signup';
 import Upload from './components/Upload';
 import Gallery from './components/Gallery';
+import PublicGallery from './components/PublicGallery';
 import Folders from './components/Folders';
 import FolderDetail from './components/FolderDetail';
 import PublicFolderView from './components/PublicFolderView';
@@ -58,7 +59,14 @@ function AppContent() {
                 onClick={() => setIsMenuOpen(false)}
                 className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
               >
-                Home
+                Public Gallery
+              </Link>
+              <Link
+                to="/home"
+                onClick={() => setIsMenuOpen(false)}
+                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+              >
+                Dashboard
               </Link>
               <Link
                 to="/folders"
@@ -149,7 +157,14 @@ function AppContent() {
                 onClick={() => setIsMenuOpen(false)}
                 className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
               >
-                Home
+                Public Gallery
+              </Link>
+              <Link
+                to="/home"
+                onClick={() => setIsMenuOpen(false)}
+                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+              >
+                Dashboard
               </Link>
               <Link
                 to="/folders"
@@ -232,12 +247,13 @@ function AppContent() {
         <div className="max-w-[1400px] mx-auto px-6 py-10">
         <Routes>
           {/* Public routes */}
+          <Route path="/" element={<PublicGallery />} />
           <Route path="/public/folder/:folderId" element={<PublicFolderView />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/register" element={<Signup />} />
           <Route
-            path="/"
+            path="/home"
             element={
               <ProtectedRoute>
                 <Home />

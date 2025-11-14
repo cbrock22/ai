@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import '../common.css';
 import './Users.css';
@@ -10,11 +10,7 @@ const Users = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`${apiUrl}/api/auth/users`, {
@@ -37,7 +33,11 @@ const Users = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiUrl, token]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleRoleChange = async (userId, newRole) => {
     try {
