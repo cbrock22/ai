@@ -503,7 +503,8 @@
 .close-btn {
   position: absolute;
   top: -50px;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.2) 0%,
     rgba(255, 255, 255, 0.1) 100%);
@@ -527,7 +528,7 @@
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.3) 0%,
     rgba(255, 255, 255, 0.2) 100%);
-  transform: scale(1.05);
+  transform: translateX(-50%) scale(1.05);
 }
 
 .lightbox-info {
