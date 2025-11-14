@@ -483,7 +483,7 @@ const Gallery = () => {
                   </div>
 
                   <div className="gallery-grid">
-                    {folder.images.map((image) => (
+                    {folder.images.slice(0, 10).map((image) => (
                       <div key={image._id} className={`gallery-item ${selectionMode && selectedImages.has(image._id) ? 'selected' : ''}`}>
                         {selectionMode && (
                           <div className="image-checkbox">
@@ -550,6 +550,18 @@ const Gallery = () => {
                       </div>
                     ))}
                   </div>
+
+                  {/* Show "View All" button if folder has more than 10 images */}
+                  {folder.images.length > 10 && (
+                    <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setSelectedFolder(folder.id)}
+                      >
+                        View All {folder.images.length} Images
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

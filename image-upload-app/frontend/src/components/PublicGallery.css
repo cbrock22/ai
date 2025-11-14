@@ -173,7 +173,8 @@
 .close-btn {
   position: absolute;
   top: -40px;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   background: white;
   border: none;
   width: 40px;
@@ -184,11 +185,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .close-btn:hover {
   background: #f0f0f0;
+  transform: translateX(-50%) scale(1.05);
 }
 
 /* Loading and error states */

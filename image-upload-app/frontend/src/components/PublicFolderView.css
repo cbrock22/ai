@@ -284,7 +284,8 @@
 .close-btn {
   position: absolute;
   top: -40px;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   background: none;
   border: none;
   color: white;
@@ -301,7 +302,7 @@
 }
 
 .close-btn:hover {
-  transform: scale(1.1);
+  transform: translateX(-50%) scale(1.1);
 }
 
 .lightbox-info {
