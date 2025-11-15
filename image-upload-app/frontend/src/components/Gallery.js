@@ -34,7 +34,7 @@ const LazyImage = ({ image, alt, onClick, selectionMode, isSelected }) => {
 };
 
 const Gallery = () => {
-  const { token, apiUrl, user } = useAuth();
+  const { token, apiUrl, user, isAdminView } = useAuth();
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -502,11 +502,13 @@ const Gallery = () => {
                           selectionMode={selectionMode}
                           isSelected={selectedImages.has(image._id)}
                         />
-                        <div className="image-info">
-                          <p className="image-uploader">
-                            By: {image.uploadedBy?.username || 'Unknown'}
-                          </p>
-                        </div>
+                        {isAdminView && (
+                          <div className="image-info">
+                            <p className="image-uploader">
+                              By: {image.uploadedBy?.username || 'Unknown'}
+                            </p>
+                          </div>
+                        )}
                         <div className="image-actions">
                           <button
                             className={`btn-favorite ${image.isFavorited ? 'favorited' : ''}`}
@@ -587,14 +589,16 @@ const Gallery = () => {
                     selectionMode={selectionMode}
                     isSelected={selectedImages.has(image._id)}
                   />
-                  <div className="image-info">
-                    <p className="image-folder">
-                      {image.folder?.name || 'Unknown Folder'}
-                    </p>
-                    <p className="image-uploader">
-                      By: {image.uploadedBy?.username || 'Unknown'}
-                    </p>
-                  </div>
+                  {isAdminView && (
+                    <div className="image-info">
+                      <p className="image-folder">
+                        {image.folder?.name || 'Unknown Folder'}
+                      </p>
+                      <p className="image-uploader">
+                        By: {image.uploadedBy?.username || 'Unknown'}
+                      </p>
+                    </div>
+                  )}
                   <div className="image-actions">
                     <button
                       className={`btn-favorite ${image.isFavorited ? 'favorited' : ''}`}
@@ -652,10 +656,14 @@ const Gallery = () => {
             <div className="lightbox-info">
               <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
               <p><strong>Folder:</strong> {selectedImage.folder?.name || 'Unknown'}</p>
-              <p><strong>Uploaded by:</strong> {selectedImage.uploadedBy?.username || 'Unknown'}</p>
-              <p className="upload-date">
-                <strong>Date:</strong> {new Date(selectedImage.uploadDate).toLocaleString()}
-              </p>
+              {isAdminView && (
+                <>
+                  <p><strong>Uploaded by:</strong> {selectedImage.uploadedBy?.username || 'Unknown'}</p>
+                  <p className="upload-date">
+                    <strong>Date:</strong> {new Date(selectedImage.uploadDate).toLocaleString()}
+                  </p>
+                </>
+              )}
             </div>
             <div className="lightbox-actions">
               <button

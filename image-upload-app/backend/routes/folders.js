@@ -359,7 +359,7 @@ router.delete('/:folderId', checkFolderAccess('admin'), async (req, res) => {
     // Get all images in this folder
     const images = await Image.find({ folder: req.folder._id });
 
-    // Delete each image from storage (S3 or local) - both compressed and original
+    // Delete each image from storage (S3 or local) - compressed, original, and thumbnail
     for (const image of images) {
       try {
         if (USE_S3) {
@@ -378,6 +378,20 @@ router.delete('/:folderId', checkFolderAccess('admin'), async (req, res) => {
             });
             await s3Client.send(originalCommand);
           }
+
+          // Delete thumbnail file if it exists
+          // Thumbnails are named with -thumb.webp suffix
+          const thumbnailFilename = image.filename.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '-thumb.webp');
+          try {
+            const thumbCommand = new DeleteObjectCommand({
+              Bucket: S3_BUCKET,
+              Key: thumbnailFilename
+            });
+            await s3Client.send(thumbCommand);
+          } catch (thumbError) {
+            // Thumbnail might not exist yet, that's okay
+            console.log(`Thumbnail ${thumbnailFilename} not found or already deleted`);
+          }
         } else {
           // Delete compressed file
           const filePath = join(uploadsDir, image.filename);
@@ -391,6 +405,13 @@ router.delete('/:folderId', checkFolderAccess('admin'), async (req, res) => {
             if (existsSync(originalPath)) {
               unlinkSync(originalPath);
             }
+          }
+
+          // Delete thumbnail file if it exists
+          const thumbnailFilename = image.filename.replace(/\.(jpg|jpeg|png|gif)$/i, '-thumb.webp');
+          const thumbnailPath = join(uploadsDir, thumbnailFilename);
+          if (existsSync(thumbnailPath)) {
+            unlinkSync(thumbnailPath);
           }
         }
       } catch (deleteError) {
