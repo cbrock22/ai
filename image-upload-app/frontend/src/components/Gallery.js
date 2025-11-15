@@ -12,8 +12,8 @@ const LazyImage = ({ image, alt, onClick, selectionMode, isSelected }) => {
     rootMargin: '200px' // Load 200px before visible
   });
 
-  // Use thumbnail if available, fall back to full image
-  const imageSrc = inView ? (image.thumbnailUrl || image.url) : null;
+  // Use thumbnail if available, fall back to display or url (for backward compatibility)
+  const imageSrc = inView ? (image.thumbnailUrl || image.displayUrl || image.url) : null;
 
   return (
     <div ref={ref} className="image-container" onClick={onClick}>
@@ -652,7 +652,7 @@ const Gallery = () => {
             <button className="close-btn" onClick={closeLightbox}>
               &times;
             </button>
-            <img src={selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} />
+            <img src={selectedImage.displayUrl || selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} />
             <div className="lightbox-info">
               <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
               <p><strong>Folder:</strong> {selectedImage.folder?.name || 'Unknown'}</p>
