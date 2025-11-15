@@ -7,12 +7,14 @@ const checkFolderAccess = (requiredAccess = 'read') => {
       const folderId = req.params.folderId || req.body.folderId || req.query.folderId;
 
       if (!folderId) {
+        console.error('[FolderPermission] No folder ID provided');
         return res.status(400).json({ error: 'Folder ID required' });
       }
 
       const folder = await Folder.findById(folderId);
 
       if (!folder) {
+        console.error('[FolderPermission] Folder not found:', folderId);
         return res.status(404).json({ error: 'Folder not found' });
       }
 
@@ -40,6 +42,7 @@ const checkFolderAccess = (requiredAccess = 'read') => {
       );
 
       if (!userPermission) {
+        console.error(`[FolderPermission] Access denied for user ${req.user.username} to folder "${folder.name}" (${folder._id}): No permissions found, required: ${requiredAccess}`);
         return res.status(403).json({ error: 'Access denied' });
       }
 
@@ -49,6 +52,7 @@ const checkFolderAccess = (requiredAccess = 'read') => {
       const requiredLevel = accessLevels[requiredAccess];
 
       if (userLevel < requiredLevel) {
+        console.error(`[FolderPermission] Insufficient permissions for user ${req.user.username} to folder "${folder.name}": has ${userPermission.access}, needs ${requiredAccess}`);
         return res.status(403).json({ error: 'Insufficient permissions' });
       }
 

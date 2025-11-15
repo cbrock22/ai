@@ -108,9 +108,11 @@ const Upload = () => {
       if (response.ok) {
         return { success: true, filename: file.name };
       } else {
-        return { success: false, filename: file.name, error: data.error };
+        console.error('Upload error response:', response.status, data);
+        return { success: false, filename: file.name, error: data.error || `HTTP ${response.status}` };
       }
     } catch (error) {
+      console.error('Upload exception:', error);
       return { success: false, filename: file.name, error: error.message };
     }
   };
@@ -138,7 +140,8 @@ const Upload = () => {
         setPreview(null);
         document.getElementById('file-input').value = '';
       } else {
-        setMessage(`Error: ${result.error}`);
+        console.error('Upload failed:', result);
+        setMessage(`Error: ${result.error || 'Upload failed'}`);
       }
       setUploading(false);
     } else {
@@ -192,7 +195,15 @@ const Upload = () => {
       const successCount = results.filter(r => r.success).length;
       const failCount = results.length - successCount;
 
-      setMessage(`Upload complete: ${successCount} succeeded${failCount > 0 ? `, ${failCount} failed` : ''}. Server processing lossless versions...`);
+      // Log failed uploads for debugging
+      if (failCount > 0) {
+        const failedUploads = results.filter(r => !r.success);
+        console.error('Failed uploads:', failedUploads);
+        const firstError = failedUploads[0]?.error || 'Unknown error';
+        setMessage(`Upload failed: ${firstError}. ${successCount} succeeded, ${failCount} failed.`);
+      } else {
+        setMessage(`Upload complete: ${successCount} succeeded. Server processing lossless versions...`);
+      }
       setUploading(false);
       setCurrentlyUploading(0);
 
