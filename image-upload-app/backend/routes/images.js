@@ -52,75 +52,85 @@ router.post('/',
     }
 
     try {
-      // Get original file extension
-      const originalExt = req.file.originalname.split('.').pop().toLowerCase();
-      const originalFilename = generateFilename(originalExt);
-      const compressedFilename = generateFilename('jpg');
+      // Generate filenames
+      const originalFilename = generateFilename('webp');
+      const displayFilename = generateFilename('webp');
 
-      // Create compressed version for display
-      const compressedBuffer = await sharp(req.file.buffer)
+      // Get image metadata
+      const metadata = await sharp(req.file.buffer).metadata();
+
+      // Create ORIGINAL: WebP Lossless (full resolution) - for download
+      const originalBuffer = await sharp(req.file.buffer)
         .rotate()
-        .resize(2400, 2400, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 85, progressive: true, mozjpeg: true })
+        .webp({ lossless: true })
         .toBuffer();
 
-      let url, originalUrl;
+      // Create DISPLAY: WebP Lossless (2400x2400 max) - for lightbox viewing
+      const displayBuffer = await sharp(req.file.buffer)
+        .rotate()
+        .resize(2400, 2400, { fit: 'inside', withoutEnlargement: true })
+        .webp({ lossless: true })
+        .toBuffer();
+
+      let originalUrl, displayUrl;
 
       if (USE_S3) {
-        // Upload compressed version to S3
-        const compressedUpload = new Upload({
-          client: s3Client,
-          params: {
-            Bucket: S3_BUCKET,
-            Key: compressedFilename,
-            Body: compressedBuffer,
-            ContentType: 'image/jpeg',
-            CacheControl: 'max-age=604800'
-          }
-        });
-
-        // Upload original uncompressed version to S3
+        // Upload original lossless version to S3
         const originalUpload = new Upload({
           client: s3Client,
           params: {
             Bucket: S3_BUCKET,
             Key: originalFilename,
-            Body: req.file.buffer,
-            ContentType: req.file.mimetype,
+            Body: originalBuffer,
+            ContentType: 'image/webp',
             CacheControl: 'max-age=604800'
           }
         });
 
-        await Promise.all([compressedUpload.done(), originalUpload.done()]);
+        // Upload display lossless version to S3
+        const displayUpload = new Upload({
+          client: s3Client,
+          params: {
+            Bucket: S3_BUCKET,
+            Key: displayFilename,
+            Body: displayBuffer,
+            ContentType: 'image/webp',
+            CacheControl: 'max-age=604800'
+          }
+        });
 
-        url = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${compressedFilename}`;
+        await Promise.all([originalUpload.done(), displayUpload.done()]);
+
         originalUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${originalFilename}`;
+        displayUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${displayFilename}`;
       } else {
         // Save both versions locally
         const fs = require('fs').promises;
         await Promise.all([
-          fs.writeFile(join(uploadsDir, compressedFilename), compressedBuffer),
-          fs.writeFile(join(uploadsDir, originalFilename), req.file.buffer)
+          fs.writeFile(join(uploadsDir, originalFilename), originalBuffer),
+          fs.writeFile(join(uploadsDir, displayFilename), displayBuffer)
         ]);
 
         // Construct full URLs for Docker/development environments
         const protocol = req.protocol || 'http';
         const host = req.get('host') || `localhost:${process.env.PORT || 3001}`;
-        url = `${protocol}://${host}/uploads/${compressedFilename}`;
         originalUrl = `${protocol}://${host}/uploads/${originalFilename}`;
+        displayUrl = `${protocol}://${host}/uploads/${displayFilename}`;
       }
 
       // Save to database
       const image = new Image({
-        filename: compressedFilename,
+        filename: displayFilename,
         originalName: req.file.originalname,
-        url,
-        originalFilename,
         originalUrl,
-        originalSize: req.file.size,
+        originalSize: originalBuffer.length,
+        originalWidth: metadata.width,
+        originalHeight: metadata.height,
+        displayUrl,
+        displaySize: displayBuffer.length,
         folder: req.folder._id,
         uploadedBy: req.user._id,
-        size: compressedBuffer.length
+        processingStatus: 'pending' // Thumbnail will be generated async
       });
 
       await image.save();
@@ -412,16 +422,43 @@ router.delete('/:imageId', async (req, res) => {
       }
     }
 
-    // Delete from storage (both compressed and original)
+    // Delete from storage (display, original, thumbnail, and legacy files)
     if (USE_S3) {
-      const deletePromises = [
-        s3Client.send(new DeleteObjectCommand({
-          Bucket: S3_BUCKET,
-          Key: image.filename
-        }))
-      ];
+      const deletePromises = [];
 
-      // Delete original file if it exists
+      // Delete display file (WebP)
+      if (image.filename) {
+        deletePromises.push(
+          s3Client.send(new DeleteObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: image.filename
+          }))
+        );
+      }
+
+      // Delete original WebP file - extract filename from URL
+      if (image.originalUrl) {
+        const originalKey = image.originalUrl.split('/').pop();
+        deletePromises.push(
+          s3Client.send(new DeleteObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: originalKey
+          }))
+        );
+      }
+
+      // Delete thumbnail file if it exists
+      if (image.thumbnailUrl) {
+        const thumbnailKey = image.thumbnailUrl.split('/').pop();
+        deletePromises.push(
+          s3Client.send(new DeleteObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: thumbnailKey
+          }))
+        );
+      }
+
+      // Delete legacy originalFilename if it exists
       if (image.originalFilename) {
         deletePromises.push(
           s3Client.send(new DeleteObjectCommand({
@@ -433,17 +470,37 @@ router.delete('/:imageId', async (req, res) => {
 
       await Promise.all(deletePromises);
     } else {
-      // Delete compressed file
-      const filePath = join(uploadsDir, image.filename);
-      if (existsSync(filePath)) {
-        unlinkSync(filePath);
+      // Delete display file
+      if (image.filename) {
+        const filePath = join(uploadsDir, image.filename);
+        if (existsSync(filePath)) {
+          unlinkSync(filePath);
+        }
       }
 
-      // Delete original file if it exists
-      if (image.originalFilename) {
-        const originalPath = join(uploadsDir, image.originalFilename);
+      // Delete original WebP file - extract filename from URL
+      if (image.originalUrl) {
+        const originalFilename = image.originalUrl.split('/').pop();
+        const originalPath = join(uploadsDir, originalFilename);
         if (existsSync(originalPath)) {
           unlinkSync(originalPath);
+        }
+      }
+
+      // Delete thumbnail file if it exists
+      if (image.thumbnailUrl) {
+        const thumbnailFilename = image.thumbnailUrl.split('/').pop();
+        const thumbnailPath = join(uploadsDir, thumbnailFilename);
+        if (existsSync(thumbnailPath)) {
+          unlinkSync(thumbnailPath);
+        }
+      }
+
+      // Delete legacy originalFilename if it exists
+      if (image.originalFilename) {
+        const legacyOriginalPath = join(uploadsDir, image.originalFilename);
+        if (existsSync(legacyOriginalPath)) {
+          unlinkSync(legacyOriginalPath);
         }
       }
     }
