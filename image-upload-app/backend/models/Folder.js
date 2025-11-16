@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 
+// Folder model for organizing images with granular permissions
+// Permission levels: read (view only), write (upload), admin (full control)
 
 const folderSchema = new mongoose.Schema({
   name: {
