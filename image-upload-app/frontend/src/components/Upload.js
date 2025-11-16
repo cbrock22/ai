@@ -16,6 +16,7 @@ const Upload = () => {
   const [loadingFolders, setLoadingFolders] = useState(true);
   const [uploadProgress, setUploadProgress] = useState([]);
   const [currentlyUploading, setCurrentlyUploading] = useState(0);
+  const [singleFileProgress, setSingleFileProgress] = useState(0);
 
   // Fetch folders user has write access to
   useEffect(() => {
@@ -88,33 +89,86 @@ const Upload = () => {
     }
   }, [createPreview, uploadMode]);
 
-  const uploadSingleFile = async (file) => {
+  const uploadSingleFile = async (file, onProgress) => {
     const formData = new FormData();
     formData.append('image', file);
     formData.append('folderId', selectedFolder);
 
-    try {
-      const response = await fetch(`${apiUrl}/api/images`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        credentials: 'include',
-        body: formData,
+    const uploadUrl = `${apiUrl}/api/images`;
+
+    return new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+
+      // Track upload progress
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onProgress) {
+          const percentComplete = (e.loaded / e.total) * 100;
+          onProgress(percentComplete);
+        }
       });
 
-      const data = await response.json();
+      // Handle completion
+      xhr.addEventListener('load', () => {
+        try {
+          const contentType = xhr.getResponseHeader('content-type');
 
-      if (response.ok) {
-        return { success: true, filename: file.name };
-      } else {
-        console.error('Upload error response:', response.status, data);
-        return { success: false, filename: file.name, error: data.error || `HTTP ${response.status}` };
-      }
-    } catch (error) {
-      console.error('Upload exception:', error);
-      return { success: false, filename: file.name, error: error.message };
-    }
+          if (!contentType || !contentType.includes('application/json')) {
+            console.error('[Upload] Non-JSON response:', xhr.responseText.substring(0, 200));
+            resolve({
+              success: false,
+              filename: file.name,
+              error: `Server returned HTML instead of JSON. Status: ${xhr.status}`
+            });
+            return;
+          }
+
+          const data = JSON.parse(xhr.responseText);
+
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve({ success: true, filename: file.name });
+          } else {
+            console.error('Upload error response:', xhr.status, data);
+            resolve({
+              success: false,
+              filename: file.name,
+              error: data.error || `HTTP ${xhr.status}`
+            });
+          }
+        } catch (error) {
+          console.error('Upload parse error:', error);
+          resolve({
+            success: false,
+            filename: file.name,
+            error: error.message
+          });
+        }
+      });
+
+      // Handle errors
+      xhr.addEventListener('error', () => {
+        console.error('Upload network error');
+        resolve({
+          success: false,
+          filename: file.name,
+          error: 'Network error'
+        });
+      });
+
+      // Handle abort
+      xhr.addEventListener('abort', () => {
+        resolve({
+          success: false,
+          filename: file.name,
+          error: 'Upload cancelled'
+        });
+      });
+
+      // Open and send request
+      xhr.open('POST', uploadUrl);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.withCredentials = true;
+      xhr.send(formData);
+    });
   };
 
   const handleUpload = async () => {
@@ -130,18 +184,26 @@ const Upload = () => {
       }
 
       setUploading(true);
+      setSingleFileProgress(0);
       setMessage('Uploading...');
 
-      const result = await uploadSingleFile(selectedFile);
+      const result = await uploadSingleFile(selectedFile, (progress) => {
+        setSingleFileProgress(Math.round(progress));
+      });
 
       if (result.success) {
+        setSingleFileProgress(100);
         setMessage('Image uploaded successfully! Processing lossless versions...');
-        setSelectedFile(null);
-        setPreview(null);
-        document.getElementById('file-input').value = '';
+        setTimeout(() => {
+          setSelectedFile(null);
+          setPreview(null);
+          setSingleFileProgress(0);
+          document.getElementById('file-input').value = '';
+        }, 1000);
       } else {
         console.error('Upload failed:', result);
         setMessage(`Error: ${result.error || 'Upload failed'}`);
+        setSingleFileProgress(0);
       }
       setUploading(false);
     } else {
@@ -177,13 +239,16 @@ const Upload = () => {
 
           if (chunk.length > 0) {
             // Upload chunk in parallel (all files in chunk upload together)
-            const chunkPromise = Promise.all(chunk.map(file => uploadSingleFile(file)))
-              .then(chunkResults => {
-                results.push(...chunkResults);
-                setUploadProgress(prev => [...prev, ...chunkResults]);
-                setCurrentlyUploading(results.length);
-                return chunkResults;
-              });
+            const chunkPromise = Promise.all(
+              chunk.map(file => uploadSingleFile(file, (progress) => {
+                // Individual file progress can be tracked here if needed
+              }))
+            ).then(chunkResults => {
+              results.push(...chunkResults);
+              setUploadProgress(prev => [...prev, ...chunkResults]);
+              setCurrentlyUploading(results.length);
+              return chunkResults;
+            });
             chunks.push(chunkPromise);
           }
         }
@@ -347,6 +412,21 @@ const Upload = () => {
                 <p><strong>Size:</strong> {(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
               </div>
             )}
+
+            {/* Single File Upload Progress */}
+            {uploading && uploadMode === 'single' && (
+              <div className="upload-progress-container">
+                <div className="progress-bar-wrapper">
+                  <div className="progress-bar-bg">
+                    <div
+                      className="progress-bar-fill"
+                      style={{ width: `${singleFileProgress}%` }}
+                    ></div>
+                  </div>
+                  <span className="progress-text">{singleFileProgress}%</span>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -380,6 +460,26 @@ const Upload = () => {
             {selectedFiles.length > 0 && (
               <div className="file-info">
                 <p><strong>{selectedFiles.length} images selected</strong></p>
+              </div>
+            )}
+
+            {/* Multiple Files Upload Progress */}
+            {uploading && uploadMode === 'multiple' && (
+              <div className="upload-progress-container">
+                <div className="progress-info">
+                  <p>Uploading: {currentlyUploading} / {selectedFiles.length}</p>
+                </div>
+                <div className="progress-bar-wrapper">
+                  <div className="progress-bar-bg">
+                    <div
+                      className="progress-bar-fill"
+                      style={{ width: `${(currentlyUploading / selectedFiles.length) * 100}%` }}
+                    ></div>
+                  </div>
+                  <span className="progress-text">
+                    {Math.round((currentlyUploading / selectedFiles.length) * 100)}%
+                  </span>
+                </div>
               </div>
             )}
           </>
