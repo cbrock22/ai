@@ -14,6 +14,43 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticateToken);
 
+// Processing queue to prevent memory exhaustion
+class ImageProcessingQueue {
+  constructor() {
+    this.queue = [];
+    this.processing = false;
+  }
+
+  async add(task) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ task, resolve, reject });
+      this.process();
+    });
+  }
+
+  async process() {
+    if (this.processing || this.queue.length === 0) return;
+
+    this.processing = true;
+    const { task, resolve, reject } = this.queue.shift();
+
+    try {
+      const result = await task();
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    } finally {
+      this.processing = false;
+      // Process next item
+      if (this.queue.length > 0) {
+        setImmediate(() => this.process());
+      }
+    }
+  }
+}
+
+const imageQueue = new ImageProcessingQueue();
+
 // S3 configuration
 const USE_S3 = process.env.USE_S3 === 'true';
 const s3Client = USE_S3 ? new S3Client({
@@ -52,25 +89,37 @@ router.post('/',
     }
 
     try {
-      // Generate filenames
-      const originalFilename = generateFilename('webp');
-      const displayFilename = generateFilename('webp');
+      console.log(`[ImageUpload] Queuing image: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`);
 
-      // Get image metadata
-      const metadata = await sharp(req.file.buffer).metadata();
+      // Queue the image processing to prevent memory exhaustion
+      const result = await imageQueue.add(async () => {
+        console.log(`[ImageUpload] Processing: ${req.file.originalname}`);
+        // Generate filenames
+        const originalFilename = generateFilename('webp');
+        const displayFilename = generateFilename('webp');
 
-      // Create ORIGINAL: WebP Lossless (full resolution) - for download
-      const originalBuffer = await sharp(req.file.buffer)
-        .rotate()
-        .webp({ lossless: true })
-        .toBuffer();
+        // Get image metadata
+        const metadata = await sharp(req.file.buffer).metadata();
 
-      // Create DISPLAY: WebP Lossless (2400x2400 max) - for lightbox viewing
-      const displayBuffer = await sharp(req.file.buffer)
-        .rotate()
-        .resize(2400, 2400, { fit: 'inside', withoutEnlargement: true })
-        .webp({ lossless: true })
-        .toBuffer();
+        // Create ORIGINAL: WebP Lossless (full resolution) - for download
+        const originalBuffer = await sharp(req.file.buffer)
+          .rotate()
+          .webp({ lossless: true })
+          .toBuffer();
+
+        // Create DISPLAY: WebP Lossless (2400x2400 max) - for lightbox viewing
+        const displayBuffer = await sharp(req.file.buffer)
+          .rotate()
+          .resize(2400, 2400, { fit: 'inside', withoutEnlargement: true })
+          .webp({ lossless: true })
+          .toBuffer();
+
+        console.log(`[ImageUpload] Completed processing: ${req.file.originalname}`);
+        return { originalFilename, displayFilename, metadata, originalBuffer, displayBuffer };
+      });
+
+      const { originalFilename, displayFilename, metadata, originalBuffer, displayBuffer } = result;
+      console.log(`[ImageUpload] Uploading to storage: ${req.file.originalname}`);
 
       let originalUrl, displayUrl;
 
@@ -136,6 +185,8 @@ router.post('/',
       await image.save();
       await image.populate('uploadedBy', 'username email');
       await image.populate('folder', 'name');
+
+      console.log(`[ImageUpload] Success: ${req.file.originalname} - Queue length: ${imageQueue.queue.length}`);
 
       res.status(201).json({
         message: 'Uploaded successfully',
