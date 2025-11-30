@@ -27,14 +27,14 @@ const imageSchema = new mongoose.Schema({
     type: Number
   },
 
-  // DISPLAY: WebP Lossless (2400x2400 max) - for lightbox viewing
+  // DISPLAY: For backward compatibility (now same as original - raw image)
   displayUrl: {
     type: String,
-    required: true
+    required: false  // Optional - defaults to originalUrl for raw images
   },
   displaySize: {
     type: Number,
-    required: true
+    required: false  // Optional - defaults to originalSize for raw images
   },
 
   // THUMBNAIL: WebP Lossy (300x300) - for gallery grid (generated async)
