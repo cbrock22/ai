@@ -50,6 +50,12 @@ services:
     restart: unless-stopped
     ports:
       - "3001:3001"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
     environment:
       NODE_ENV: production
       PORT: 3001
