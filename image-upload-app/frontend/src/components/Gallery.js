@@ -652,7 +652,7 @@ const Gallery = () => {
             <button className="close-btn" onClick={closeLightbox}>
               &times;
             </button>
-            <img src={selectedImage.displayUrl || selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} />
+            <img src={selectedImage.originalUrl || selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} />
             <div className="lightbox-info">
               <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
               <p><strong>Folder:</strong> {selectedImage.folder?.name || 'Unknown'}</p>

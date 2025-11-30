@@ -94,92 +94,89 @@ router.post('/',
       // Queue the image processing to prevent memory exhaustion
       const result = await imageQueue.add(async () => {
         console.log(`[ImageUpload] Processing: ${req.file.originalname}`);
-        // Generate filenames
-        const originalFilename = generateFilename('webp');
-        const displayFilename = generateFilename('webp');
 
-        // Get image metadata
+        // Get original file extension
+        const originalExt = req.file.originalname.split('.').pop().toLowerCase();
+        const originalFilename = generateFilename(originalExt);
+
+        // Get image metadata (lightweight operation)
         const metadata = await sharp(req.file.buffer).metadata();
 
-        // Create ORIGINAL: WebP Lossless (full resolution) - for download
-        const originalBuffer = await sharp(req.file.buffer)
+        // Only create thumbnail (400x400 max) - lightweight and fast
+        const thumbnailBuffer = await sharp(req.file.buffer)
           .rotate()
-          .webp({ lossless: true })
-          .toBuffer();
-
-        // Create DISPLAY: WebP Lossless (2400x2400 max) - for lightbox viewing
-        const displayBuffer = await sharp(req.file.buffer)
-          .rotate()
-          .resize(2400, 2400, { fit: 'inside', withoutEnlargement: true })
-          .webp({ lossless: true })
+          .resize(400, 400, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 80, progressive: true })
           .toBuffer();
 
         console.log(`[ImageUpload] Completed processing: ${req.file.originalname}`);
-        return { originalFilename, displayFilename, metadata, originalBuffer, displayBuffer };
+        return { originalFilename, thumbnailBuffer, metadata };
       });
 
-      const { originalFilename, displayFilename, metadata, originalBuffer, displayBuffer } = result;
+      const { originalFilename, thumbnailBuffer, metadata } = result;
       console.log(`[ImageUpload] Uploading to storage: ${req.file.originalname}`);
 
-      let originalUrl, displayUrl;
+      const thumbnailFilename = generateFilename('jpg');
+      let originalUrl, thumbnailUrl;
 
       if (USE_S3) {
-        // Upload original lossless version to S3
+        // Upload raw original file to S3 (no compression)
         const originalUpload = new Upload({
           client: s3Client,
           params: {
             Bucket: S3_BUCKET,
             Key: originalFilename,
-            Body: originalBuffer,
-            ContentType: 'image/webp',
+            Body: req.file.buffer,
+            ContentType: req.file.mimetype,
             CacheControl: 'max-age=604800'
           }
         });
 
-        // Upload display lossless version to S3
-        const displayUpload = new Upload({
+        // Upload thumbnail to S3
+        const thumbnailUpload = new Upload({
           client: s3Client,
           params: {
             Bucket: S3_BUCKET,
-            Key: displayFilename,
-            Body: displayBuffer,
-            ContentType: 'image/webp',
+            Key: thumbnailFilename,
+            Body: thumbnailBuffer,
+            ContentType: 'image/jpeg',
             CacheControl: 'max-age=604800'
           }
         });
 
-        await Promise.all([originalUpload.done(), displayUpload.done()]);
+        await Promise.all([originalUpload.done(), thumbnailUpload.done()]);
 
         originalUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${originalFilename}`;
-        displayUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${displayFilename}`;
+        thumbnailUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${thumbnailFilename}`;
       } else {
         // Save both versions locally
         const fs = require('fs').promises;
         await Promise.all([
-          fs.writeFile(join(uploadsDir, originalFilename), originalBuffer),
-          fs.writeFile(join(uploadsDir, displayFilename), displayBuffer)
+          fs.writeFile(join(uploadsDir, originalFilename), req.file.buffer),
+          fs.writeFile(join(uploadsDir, thumbnailFilename), thumbnailBuffer)
         ]);
 
         // Construct full URLs for Docker/development environments
         const protocol = req.protocol || 'http';
         const host = req.get('host') || `localhost:${process.env.PORT || 3001}`;
         originalUrl = `${protocol}://${host}/uploads/${originalFilename}`;
-        displayUrl = `${protocol}://${host}/uploads/${displayFilename}`;
+        thumbnailUrl = `${protocol}://${host}/uploads/${thumbnailFilename}`;
       }
 
       // Save to database
       const image = new Image({
-        filename: displayFilename,
+        filename: originalFilename,
         originalName: req.file.originalname,
+        url: originalUrl,
         originalUrl,
-        originalSize: originalBuffer.length,
+        size: req.file.size,
+        originalSize: req.file.size,
         originalWidth: metadata.width,
         originalHeight: metadata.height,
-        displayUrl,
-        displaySize: displayBuffer.length,
+        thumbnailUrl,
         folder: req.folder._id,
         uploadedBy: req.user._id,
-        processingStatus: 'pending' // Thumbnail will be generated async
+        processingStatus: 'completed' // Thumbnail generated synchronously
       });
 
       await image.save();
