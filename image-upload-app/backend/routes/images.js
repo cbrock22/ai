@@ -102,21 +102,29 @@ router.post('/',
         // Get image metadata (lightweight operation)
         const metadata = await sharp(req.file.buffer).metadata();
 
-        // Only create thumbnail (400x400 max) - lightweight and fast
-        const thumbnailBuffer = await sharp(req.file.buffer)
+        // Only create thumbnail (300x300 max) - optimized for fast loading
+        const thumbnailSharp = sharp(req.file.buffer)
           .rotate()
-          .resize(400, 400, { fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 80, progressive: true })
-          .toBuffer();
+          .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 75 }); // WebP is smaller than JPEG with same quality
+
+        const thumbnailBuffer = await thumbnailSharp.toBuffer();
+        const thumbnailMetadata = await sharp(thumbnailBuffer).metadata();
 
         console.log(`[ImageUpload] Completed processing: ${req.file.originalname}`);
-        return { originalFilename, thumbnailBuffer, metadata };
+        return {
+          originalFilename,
+          thumbnailBuffer,
+          thumbnailWidth: thumbnailMetadata.width,
+          thumbnailHeight: thumbnailMetadata.height,
+          metadata
+        };
       });
 
-      const { originalFilename, thumbnailBuffer, metadata } = result;
+      const { originalFilename, thumbnailBuffer, thumbnailWidth, thumbnailHeight, metadata } = result;
       console.log(`[ImageUpload] Uploading to storage: ${req.file.originalname}`);
 
-      const thumbnailFilename = generateFilename('jpg');
+      const thumbnailFilename = generateFilename('webp');
       let originalUrl, thumbnailUrl;
 
       if (USE_S3) {
@@ -139,8 +147,8 @@ router.post('/',
             Bucket: S3_BUCKET,
             Key: thumbnailFilename,
             Body: thumbnailBuffer,
-            ContentType: 'image/jpeg',
-            CacheControl: 'max-age=604800'
+            ContentType: 'image/webp',
+            CacheControl: 'max-age=2592000, immutable' // 30 days, immutable for better caching
           }
         });
 
@@ -176,6 +184,9 @@ router.post('/',
         originalWidth: metadata.width,
         originalHeight: metadata.height,
         thumbnailUrl,
+        thumbnailSize: thumbnailBuffer.length,
+        thumbnailWidth,
+        thumbnailHeight,
         folder: req.folder._id,
         uploadedBy: req.user._id,
         processingStatus: 'completed' // Thumbnail generated synchronously
