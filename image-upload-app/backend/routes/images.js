@@ -169,8 +169,10 @@ router.post('/',
         originalName: req.file.originalname,
         url: originalUrl,
         originalUrl,
+        displayUrl: originalUrl, // Same as original (raw image, no processing)
         size: req.file.size,
         originalSize: req.file.size,
+        displaySize: req.file.size, // Same as original (raw image, no processing)
         originalWidth: metadata.width,
         originalHeight: metadata.height,
         thumbnailUrl,
