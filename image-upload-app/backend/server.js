@@ -26,9 +26,9 @@ mongoose.connect(MONGODB_URI)
     // Create default admin user if it doesn't exist
     await createDefaultAdmin();
 
-    // Start thumbnail worker in background
-    const { startThumbnailWorker } = require('./services/thumbnailWorker');
-    startThumbnailWorker();
+    // Thumbnail worker disabled - thumbnails now generated synchronously on upload
+    // const { startThumbnailWorker } = require('./services/thumbnailWorker');
+    // startThumbnailWorker();
   })
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
