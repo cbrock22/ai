@@ -37,11 +37,17 @@ const imageSchema = new mongoose.Schema({
     required: false  // Optional - defaults to originalSize for raw images
   },
 
-  // THUMBNAIL: WebP Lossy (300x300) - for gallery grid (generated async)
+  // THUMBNAIL: WebP (300x300 max) - for gallery grid
   thumbnailUrl: {
     type: String
   },
   thumbnailSize: {
+    type: Number
+  },
+  thumbnailWidth: {
+    type: Number
+  },
+  thumbnailHeight: {
     type: Number
   },
   thumbnailGeneratedAt: {
