@@ -291,7 +291,7 @@ const getPublicIP = () => {
   });
 };
 
-app.listen(PORT, '0.0.0.0', async () => {
+const server = app.listen(PORT, '0.0.0.0', async () => {
   const localIP = getLocalIP();
   console.log(`\n🚀 Server running on:`);
   console.log(`   Local:   http://localhost:${PORT}`);
@@ -335,3 +335,6 @@ app.listen(PORT, '0.0.0.0', async () => {
     console.log();
   }
 });
+
+// Increase timeout for image processing (5 minutes)
+server.timeout = 300000;
