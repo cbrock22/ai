@@ -167,6 +167,7 @@ const Upload = () => {
       xhr.open('POST', uploadUrl);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.withCredentials = true;
+      xhr.timeout = 300000; // 5 minute timeout for large image processing
       xhr.send(formData);
     });
   };
@@ -223,10 +224,11 @@ const Upload = () => {
       setUploadProgress([]);
 
       // Upload in parallel chunks
-      // Chunk size: 20 files per request
-      // Parallel chunks: 3 concurrent requests
-      const chunkSize = 20;
-      const parallelChunks = 3;
+      // Reduced parallelism to prevent backend memory exhaustion
+      // Chunk size: 5 files per batch (reduced from 20)
+      // Parallel chunks: 2 concurrent requests (reduced from 3)
+      const chunkSize = 5;
+      const parallelChunks = 2;
       const results = [];
 
       for (let i = 0; i < selectedFiles.length; i += chunkSize * parallelChunks) {
@@ -255,6 +257,11 @@ const Upload = () => {
 
         // Wait for all parallel chunks to complete before next batch
         await Promise.all(chunks);
+
+        // Add a small delay between batches to prevent backend memory exhaustion
+        if (i + chunkSize * parallelChunks < selectedFiles.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
 
       const successCount = results.filter(r => r.success).length;
