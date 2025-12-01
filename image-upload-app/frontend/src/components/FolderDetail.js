@@ -43,7 +43,7 @@ const FolderDetail = () => {
   const fetchImages = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${apiUrl}/api/images/folder/${folderId}`, {
+      const response = await fetch(`${apiUrl}/api/images/folder/${folderId}?limit=1000`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -52,7 +52,9 @@ const FolderDetail = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setImages(data);
+        // Handle both paginated response (new) and array response (old)
+        const imageArray = data.images ? data.images : data;
+        setImages(imageArray);
         setError('');
       } else {
         const data = await response.json();
