@@ -44,6 +44,7 @@ const Gallery = () => {
   const { token, apiUrl, user, isAdminView } = useAuth();
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [folders, setFolders] = useState([]);
@@ -51,6 +52,9 @@ const Gallery = () => {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedImages, setSelectedImages] = useState(new Set());
   const [currentFolder, setCurrentFolder] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalImages, setTotalImages] = useState(0);
 
   // Fetch folders
   useEffect(() => {
@@ -80,14 +84,19 @@ const Gallery = () => {
     fetchFolders();
   }, [token, apiUrl, selectedFolder]);
 
-  const fetchImages = useCallback(async () => {
+  const fetchImages = useCallback(async (pageNum = 1, append = false) => {
     try {
-      setLoading(true);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
       let url = `${apiUrl}/api/images`;
 
-      // If a specific folder is selected, fetch only that folder's images
+      // If a specific folder is selected, fetch only that folder's images with pagination
       if (selectedFolder !== 'all') {
-        url = `${apiUrl}/api/images/folder/${selectedFolder}`;
+        url = `${apiUrl}/api/images/folder/${selectedFolder}?page=${pageNum}&limit=50`;
       }
 
       const response = await fetch(url, {
@@ -99,7 +108,22 @@ const Gallery = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setImages(data);
+        // Handle paginated response (specific folder)
+        if (data.images && data.pagination) {
+          if (append) {
+            setImages(prev => [...prev, ...data.images]);
+          } else {
+            setImages(data.images);
+          }
+          setHasMore(data.pagination.hasMore);
+          setTotalImages(data.pagination.total);
+          setPage(data.pagination.page);
+        } else {
+          // Handle non-paginated response (all images)
+          setImages(data);
+          setHasMore(false);
+          setTotalImages(data.length);
+        }
         setError('');
       } else {
         setError(data.error || 'Failed to fetch images');
@@ -108,12 +132,36 @@ const Gallery = () => {
       setError('Failed to connect to server');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [token, selectedFolder, apiUrl]);
 
+  // Reset pagination when folder changes
   useEffect(() => {
-    fetchImages();
-  }, [fetchImages]);
+    setPage(1);
+    setHasMore(true);
+    setImages([]);
+    fetchImages(1, false);
+  }, [selectedFolder, token, apiUrl]); // Don't include fetchImages to avoid infinite loop
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !loadingMore && !loading) {
+      const nextPage = page + 1;
+      fetchImages(nextPage, true);
+    }
+  }, [hasMore, loadingMore, loading, page, fetchImages]);
+
+  // Infinite scroll with IntersectionObserver
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: '400px' // Start loading 400px before reaching the bottom
+  });
+
+  useEffect(() => {
+    if (inView && hasMore && !loadingMore && !loading) {
+      loadMore();
+    }
+  }, [inView, hasMore, loadingMore, loading, loadMore]);
 
   const toggleFavorite = useCallback(async (imageId, currentStatus) => {
     try {
@@ -701,6 +749,43 @@ const Gallery = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Pagination controls and infinite scroll */}
+          {selectedFolder !== 'all' && images.length > 0 && (
+            <div ref={loadMoreRef} style={{ marginTop: '2rem', textAlign: 'center' }}>
+              {totalImages > 0 && (
+                <p style={{ color: '#64748b', marginBottom: '1rem' }}>
+                  Showing {images.length} of {totalImages} images
+                </p>
+              )}
+
+              {loadingMore && (
+                <div className="loading" style={{ minHeight: '100px' }}>
+                  <div className="spinner"></div>
+                  <p>Loading more images...</p>
+                </div>
+              )}
+
+              {hasMore && !loadingMore && (
+                <button
+                  className="btn btn-primary"
+                  onClick={loadMore}
+                  style={{
+                    padding: '0.875rem 2rem',
+                    fontSize: '1rem'
+                  }}
+                >
+                  Load More Images
+                </button>
+              )}
+
+              {!hasMore && images.length > 0 && (
+                <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
+                  All images loaded
+                </p>
+              )}
             </div>
           )}
         </>
