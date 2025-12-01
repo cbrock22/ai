@@ -166,6 +166,8 @@ const Gallery = () => {
 
   const handleDownload = useCallback(async (imageId, imageName) => {
     try {
+      console.log('[Download] Starting download for:', imageName);
+
       // Get download URL
       const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
         headers: {
@@ -182,34 +184,60 @@ const Gallery = () => {
 
       const data = await response.json();
       const filename = data.filename || imageName;
+      console.log('[Download] Download URL:', data.url);
+      console.log('[Download] Filename:', filename);
 
       // Fetch the actual image as blob
-      const imageResponse = await fetch(data.url, {
-        mode: 'cors',
-        credentials: 'include'
-      });
+      console.log('[Download] Fetching image as blob...');
+      const imageResponse = await fetch(data.url);
+
+      console.log('[Download] Image fetch status:', imageResponse.status);
+      console.log('[Download] Response headers:', Object.fromEntries(imageResponse.headers.entries()));
 
       if (!imageResponse.ok) {
-        throw new Error('Failed to fetch image');
+        console.warn('[Download] Blob fetch failed, falling back to direct download');
+        // Fallback to direct download if CORS blocks blob fetch
+        const link = document.createElement('a');
+        link.href = data.url;
+        link.download = filename;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
       }
 
       const blob = await imageResponse.blob();
+      console.log('[Download] Blob created:', blob.size, 'bytes, type:', blob.type);
 
       // Create blob URL and trigger download
       const blobUrl = URL.createObjectURL(blob);
+      console.log('[Download] Blob URL created:', blobUrl);
+
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = filename;
       link.style.display = 'none';
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
 
-      // Cleanup blob URL after a short delay
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      console.log('[Download] Triggering download...');
+      // Use setTimeout to ensure the link is in the DOM before clicking
+      setTimeout(() => {
+        link.click();
+        console.log('[Download] Download triggered successfully');
+
+        // Remove from DOM after clicking
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+          console.log('[Download] Cleaned up');
+        }, 100);
+      }, 0);
     } catch (err) {
-      console.error('Download error:', err);
-      alert('Failed to download image. Please try again.');
+      console.error('[Download] Error:', err);
+      console.error('[Download] Error stack:', err.stack);
+      alert('Failed to download image. Check console for details.');
     }
   }, [apiUrl, token]);
 
