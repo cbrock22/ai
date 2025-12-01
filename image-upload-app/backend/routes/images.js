@@ -320,13 +320,26 @@ router.post('/bulk',
   }
 );
 
-// Get images in a folder
+// Get images in a folder (with pagination)
 router.get('/folder/:folderId', checkFolderAccess('read'), async (req, res) => {
   try {
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50; // Default 50 images per page
+    const skip = (page - 1) * limit;
+
+    console.log(`[GetImages] Fetching page ${page}, limit ${limit}, skip ${skip}`);
+
+    // Get total count first
+    const totalCount = await Image.countDocuments({ folder: req.folder._id });
+
+    // Fetch images with pagination
     const images = await Image.find({ folder: req.folder._id })
       .populate('uploadedBy', 'username email')
       .populate('folder', 'name')
-      .sort({ uploadDate: -1 });
+      .sort({ uploadDate: -1 })
+      .skip(skip)
+      .limit(limit);
 
     // Add isFavorited flag for current user and ensure absolute URLs
     const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
@@ -351,7 +364,17 @@ router.get('/folder/:folderId', checkFolderAccess('read'), async (req, res) => {
       return new Date(b.uploadDate) - new Date(a.uploadDate);
     });
 
-    res.json(imagesWithFavorites);
+    // Return paginated response with metadata
+    res.json({
+      images: imagesWithFavorites,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasMore: skip + images.length < totalCount
+      }
+    });
   } catch (error) {
     console.error('Get images error:', error);
     res.status(500).json({ error: 'Failed to fetch images' });
