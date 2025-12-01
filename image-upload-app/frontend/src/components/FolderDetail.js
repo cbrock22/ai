@@ -146,6 +146,7 @@ const FolderDetail = () => {
   }, [apiUrl, token, selectedImage]);
 
   const handleDownload = useCallback(async (imageId, imageName) => {
+    console.log('hello world!')
     try {
       const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
         headers: {

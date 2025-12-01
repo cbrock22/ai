@@ -213,6 +213,7 @@ const Gallery = () => {
   }, [selectedImage, token, apiUrl]);
 
   const handleDownload = useCallback(async (imageId, imageName) => {
+    console.log('hello world!')
     try {
       console.log('[Download] Starting download for:', imageName);
 
