@@ -610,11 +610,17 @@ router.get('/:imageId/download', async (req, res) => {
 
     // Check if user has access to the folder
     const folder = image.folder;
-    const hasAccess =
-      folder.owner.toString() === req.user._id.toString() ||
-      folder.isPublic ||
-      folder.permissions.some(p => p.user.toString() === req.user._id.toString()) ||
-      req.user.role === 'admin';
+
+    // Allow access if folder is public (no authentication required)
+    // Otherwise, require authentication and check permissions
+    let hasAccess = folder.isPublic;
+
+    if (!hasAccess && req.user) {
+      hasAccess =
+        folder.owner.toString() === req.user._id.toString() ||
+        folder.permissions.some(p => p.user.toString() === req.user._id.toString()) ||
+        req.user.role === 'admin';
+    }
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });
