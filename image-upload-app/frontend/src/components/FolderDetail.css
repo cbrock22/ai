@@ -577,7 +577,7 @@
 }
 
 /* Show mobile button on mobile/tablet, hide desktop button */
-@media (max-width: 768px) {
+@media (max-width: 1200px) {
   .lightbox-content .close-btn-desktop {
     display: none !important;
   }
