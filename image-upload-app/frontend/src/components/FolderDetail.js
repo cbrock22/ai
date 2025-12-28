@@ -204,13 +204,14 @@ const FolderDetail = () => {
     try {
       console.log('[Download] Starting download for:', imageName);
 
-      // Detect OS (not browser)
+      // Detect OS and device type (not browser)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isAndroid = /Android/.test(navigator.userAgent);
       const isMobile = isIOS || isAndroid;
+      const isDesktop = !isMobile; // Windows, Mac, Linux desktops/laptops
 
-      console.log('[Download] Device:', { isIOS, isAndroid, isMobile });
+      console.log('[Download] Device:', { isIOS, isAndroid, isMobile, isDesktop, platform: navigator.platform });
 
       // Fetch directly from backend (it will proxy S3 or return local file)
       const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
@@ -258,13 +259,16 @@ const FolderDetail = () => {
       }
 
       console.log('[Download] Blob size:', blob.size, 'bytes');
+      console.log('[Download] Blob type:', blob.type);
 
-      // Handle download based on OS
+      // Handle download based on device type
       if (isIOS) {
-        // iOS: Use native share sheet (works in all iOS browsers)
-        console.log('[Download] iOS detected - using native share');
+        // ========================================
+        // iOS (iPhone/iPad): Use Web Share API
+        // ========================================
+        console.log('[Download] iOS detected - using native share sheet');
 
-        // Create a File object with proper MIME type
+        // Create a File object with proper MIME type for iOS
         const file = new File([blob], filename, { type: blob.type });
 
         // Check if Web Share API is available (iOS Safari, iOS Chrome)
@@ -275,42 +279,81 @@ const FolderDetail = () => {
               title: 'Save Image',
               text: filename
             });
-            console.log('[Download] Shared via Web Share API');
+            console.log('[Download] Shared via Web Share API successfully');
           } catch (err) {
             if (err.name !== 'AbortError') {
-              console.warn('[Download] Share failed, falling back to download:', err);
-              // Fallback to download link
+              console.warn('[Download] Share failed, falling back to open in tab:', err);
               const blobUrl = URL.createObjectURL(blob);
               window.open(blobUrl, '_blank');
               setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+            } else {
+              console.log('[Download] User cancelled share');
             }
           }
         } else {
-          // Fallback: Open in new tab (user can then save from there)
-          console.log('[Download] Web Share not available, opening in new tab');
+          // Fallback: Open in new tab (user can long-press to save)
+          console.log('[Download] Web Share API not available, opening in new tab');
           const blobUrl = URL.createObjectURL(blob);
           window.open(blobUrl, '_blank');
           setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
         }
+      } else if (isDesktop) {
+        // ========================================
+        // Desktop (Windows/Mac/Linux): File Explorer/Finder
+        // ========================================
+        console.log('[Download] Desktop detected - triggering native file dialog');
+        console.log('[Download] Platform:', navigator.platform);
+
+        // Force download instead of display by using application/octet-stream
+        const downloadBlob = new Blob([blob], { type: 'application/octet-stream' });
+        const blobUrl = URL.createObjectURL(downloadBlob);
+
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename; // This triggers "Save As" dialog
+        link.style.display = 'none';
+
+        document.body.appendChild(link);
+
+        console.log('[Download] Triggering download for:', filename);
+
+        // Click the link to trigger download
+        setTimeout(() => {
+          link.click();
+          console.log('[Download] Download click triggered - file dialog should open');
+
+          // Cleanup after download
+          setTimeout(() => {
+            if (document.body.contains(link)) {
+              document.body.removeChild(link);
+            }
+            URL.revokeObjectURL(blobUrl);
+            console.log('[Download] Cleanup complete');
+          }, 1000);
+        }, 10);
       } else {
-        // Android & Desktop: Standard download
-        console.log('[Download] Standard download for Android/Desktop');
+        // ========================================
+        // Android: Downloads folder
+        // ========================================
+        console.log('[Download] Android detected - downloading to Downloads folder');
 
         const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = filename;
         link.style.display = 'none';
+
         document.body.appendChild(link);
         link.click();
 
-        // Cleanup
         setTimeout(() => {
-          document.body.removeChild(link);
+          if (document.body.contains(link)) {
+            document.body.removeChild(link);
+          }
           URL.revokeObjectURL(blobUrl);
-        }, 100);
+        }, 1000);
 
-        console.log('[Download] Download triggered successfully');
+        console.log('[Download] Android download initiated');
       }
 
     } catch (err) {
