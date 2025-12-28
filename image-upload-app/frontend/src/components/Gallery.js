@@ -671,7 +671,7 @@ const Gallery = () => {
 
       {selectedImage && (
         <div className="lightbox" onClick={closeLightbox}>
-          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+          <div className="lightbox-content">
             {/* Desktop close button - circle with X */}
             <button className="close-btn close-btn-desktop" onClick={closeLightbox}>
               &times;
@@ -682,8 +682,8 @@ const Gallery = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <img src={selectedImage.originalUrl || selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} />
-            <div className="lightbox-info">
+            <img src={selectedImage.originalUrl || selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} onClick={(e) => e.stopPropagation()} />
+            <div className="lightbox-info" onClick={(e) => e.stopPropagation()}>
               <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
               <p><strong>Folder:</strong> {selectedImage.folder?.name || 'Unknown'}</p>
               {isAdminView && (
@@ -695,7 +695,7 @@ const Gallery = () => {
                 </>
               )}
             </div>
-            <div className="lightbox-actions">
+            <div className="lightbox-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 className="btn btn-primary"
                 onClick={() => handleDownload(selectedImage._id, selectedImage.originalName || selectedImage.filename)}

@@ -146,7 +146,7 @@ const PublicGallery = () => {
       {/* Lightbox for viewing full images */}
       {selectedImage && (
         <div className="lightbox" onClick={closeLightbox}>
-          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+          <div className="lightbox-content">
             {/* Desktop close button - circle with X */}
             <button className="close-btn close-btn-desktop" onClick={closeLightbox}>
               &times;
@@ -157,8 +157,8 @@ const PublicGallery = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <img src={selectedImage.url} alt={selectedImage.filename} />
-            <div className="lightbox-actions">
+            <img src={selectedImage.url} alt={selectedImage.filename} onClick={(e) => e.stopPropagation()} />
+            <div className="lightbox-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 className="btn btn-primary"
                 onClick={() => downloadImage(selectedImage._id, selectedImage.filename)}
