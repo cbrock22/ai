@@ -283,26 +283,70 @@
 
 .close-btn {
   position: absolute;
-  top: -40px;
-  left: 50%;
-  transform: translateX(-50%);
   background: none;
   border: none;
   color: white;
-  font-size: 3rem;
   cursor: pointer;
   line-height: 1;
   padding: 0;
-  width: 40px;
-  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.2s ease;
 }
 
-.close-btn:hover {
+/* Desktop close button - circle with X, centered above image */
+.close-btn-desktop {
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 3rem;
+  width: 40px;
+  height: 40px;
+}
+
+.close-btn-desktop:hover {
   transform: translateX(-50%) scale(1.1);
+}
+
+/* Mobile close button - back arrow in upper left, slightly transparent */
+.close-btn-mobile {
+  top: 1rem;
+  left: 1rem;
+  transform: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: white;
+  opacity: 0.7;
+}
+
+.close-btn-mobile:hover {
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0.9;
+}
+
+/* Show desktop button on desktop, hide on mobile */
+.close-btn-desktop {
+  display: flex !important;
+}
+
+.close-btn-mobile {
+  display: none !important;
+}
+
+/* Show mobile button on mobile/tablet, hide desktop button */
+@media (max-width: 768px) {
+  .close-btn-desktop {
+    display: none !important;
+  }
+
+  .close-btn-mobile {
+    display: flex !important;
+  }
 }
 
 .lightbox-info {

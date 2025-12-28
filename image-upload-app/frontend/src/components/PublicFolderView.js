@@ -270,8 +270,15 @@ const PublicFolderView = () => {
       {selectedImage && (
         <div className="lightbox" onClick={closeLightbox}>
           <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={closeLightbox}>
+            {/* Desktop close button - circle with X */}
+            <button className="close-btn close-btn-desktop" onClick={closeLightbox}>
               &times;
+            </button>
+            {/* Mobile close button - back arrow in upper left */}
+            <button className="close-btn close-btn-mobile" onClick={closeLightbox}>
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
             </button>
             <img src={selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} />
             <div className="lightbox-info">

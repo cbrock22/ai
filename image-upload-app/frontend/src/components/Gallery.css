@@ -418,19 +418,12 @@
 
 .close-btn {
   position: fixed;
-  top: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.2) 0%,
     rgba(255, 255, 255, 0.1) 100%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: white;
-  font-size: 2rem;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
   border: none;
   cursor: pointer;
   display: flex !important;
@@ -443,11 +436,61 @@
   z-index: 1001;
 }
 
-.close-btn:hover {
+/* Desktop close button - circle with X, centered at top */
+.close-btn-desktop {
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.close-btn-desktop:hover {
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.3) 0%,
     rgba(255, 255, 255, 0.2) 100%);
   transform: translateX(-50%) scale(1.05);
+}
+
+/* Mobile close button - back arrow in upper left, slightly transparent */
+.close-btn-mobile {
+  top: 1rem;
+  left: 1rem;
+  transform: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0.7;
+}
+
+.close-btn-mobile:hover {
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0.9;
+}
+
+/* Show desktop button on desktop, hide on mobile */
+.close-btn-desktop {
+  display: flex !important;
+}
+
+.close-btn-mobile {
+  display: none !important;
+}
+
+/* Show mobile button on mobile/tablet, hide desktop button */
+@media (max-width: 768px) {
+  .close-btn-desktop {
+    display: none !important;
+  }
+
+  .close-btn-mobile {
+    display: flex !important;
+  }
 }
 
 .lightbox-info {
