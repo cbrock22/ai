@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useImageDownload } from '../hooks/useImageDownload';
 import '../common.css';
 import './PublicGallery.css';
 
 const PublicGallery = () => {
   const navigate = useNavigate();
   const { apiUrl } = useAuth();
+  const { downloadImage } = useImageDownload();
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,13 +40,22 @@ const PublicGallery = () => {
     fetchPublicGalleryFolders();
   }, [fetchPublicGalleryFolders]);
 
-  const openLightbox = (image) => {
+  const openLightbox = useCallback((image) => {
     setSelectedImage(image);
-  };
+    document.body.style.overflow = 'hidden';
+  }, []);
 
-  const closeLightbox = () => {
+  const closeLightbox = useCallback(() => {
     setSelectedImage(null);
-  };
+    document.body.style.overflow = 'unset';
+  }, []);
+
+  // Cleanup: unlock scrolling when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -141,17 +152,15 @@ const PublicGallery = () => {
             </button>
             <img src={selectedImage.url} alt={selectedImage.filename} />
             <div className="lightbox-actions">
-              <a
-                href={selectedImage.url}
-                download={selectedImage.filename}
+              <button
                 className="btn btn-primary"
-                onClick={(e) => e.stopPropagation()}
+                onClick={() => downloadImage(selectedImage._id, selectedImage.filename)}
               >
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 Download
-              </a>
+              </button>
             </div>
           </div>
         </div>
