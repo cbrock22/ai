@@ -201,8 +201,10 @@ const FolderDetail = () => {
   }, [apiUrl, token, selectedImage]);
 
   const handleDownload = useCallback(async (imageId, imageName) => {
-    console.log('hello world!')
     try {
+      console.log('[Download] Starting download for:', imageName);
+
+      // Get download URL
       const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -210,32 +212,68 @@ const FolderDetail = () => {
         credentials: 'include'
       });
 
-      if (response.ok) {
-        const data = await response.json();
-
-        // Check if user is on iOS/iPad
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-        if (isIOS) {
-          // For iOS devices, open in new tab for native save functionality
-          window.open(data.url, '_blank');
-        } else {
-          // For other devices, use download attribute
-          const link = document.createElement('a');
-          link.href = data.url;
-          link.download = data.filename || imageName;
-          link.target = '_blank';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }
-      } else {
+      if (!response.ok) {
         const data = await response.json();
         alert(data.error || 'Failed to download image');
+        return;
       }
+
+      const data = await response.json();
+      const filename = data.filename || imageName;
+      console.log('[Download] Download URL:', data.url);
+      console.log('[Download] Filename:', filename);
+
+      // Fetch the actual image as blob
+      console.log('[Download] Fetching image as blob...');
+      const imageResponse = await fetch(data.url);
+
+      console.log('[Download] Image fetch status:', imageResponse.status);
+      console.log('[Download] Response headers:', Object.fromEntries(imageResponse.headers.entries()));
+
+      if (!imageResponse.ok) {
+        console.warn('[Download] Blob fetch failed, falling back to direct download');
+        // Fallback to direct download if CORS blocks blob fetch
+        const link = document.createElement('a');
+        link.href = data.url;
+        link.download = filename;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+
+      const blob = await imageResponse.blob();
+      console.log('[Download] Blob created:', blob.size, 'bytes, type:', blob.type);
+
+      // Create blob URL and trigger download
+      const blobUrl = URL.createObjectURL(blob);
+      console.log('[Download] Blob URL created:', blobUrl);
+
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+
+      console.log('[Download] Triggering download...');
+      // Use setTimeout to ensure the link is in the DOM before clicking
+      setTimeout(() => {
+        link.click();
+        console.log('[Download] Download triggered successfully');
+
+        // Remove from DOM after clicking
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+          console.log('[Download] Cleaned up');
+        }, 100);
+      }, 0);
+
     } catch (err) {
-      alert('Failed to download image');
+      console.error('[Download] Error:', err);
+      alert('Failed to download image. Check console for details.');
     }
   }, [apiUrl, token]);
 
@@ -296,15 +334,14 @@ const FolderDetail = () => {
     let successCount = 0;
     let failCount = 0;
 
-    // Check if user is on iOS/iPad
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
     for (const imageId of imagesToDownload) {
       try {
         const image = images.find(img => img._id === imageId);
         if (!image) continue;
 
+        console.log('[Bulk Download] Downloading:', image.originalName || image.filename);
+
+        // Get download URL
         const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -312,29 +349,46 @@ const FolderDetail = () => {
           credentials: 'include'
         });
 
-        if (response.ok) {
-          const data = await response.json();
-
-          if (isIOS) {
-            // For iOS, open each in new tab
-            window.open(data.url, '_blank');
-          } else {
-            // For other devices, use download attribute
-            const link = document.createElement('a');
-            link.href = data.url;
-            link.download = data.filename || image.originalName || image.filename;
-            link.target = '_blank';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
-          successCount++;
-          // Add delay between downloads
-          await new Promise(resolve => setTimeout(resolve, 800));
-        } else {
+        if (!response.ok) {
           failCount++;
+          continue;
         }
+
+        const data = await response.json();
+        const filename = data.filename || image.originalName || image.filename;
+
+        // Fetch the actual image as blob
+        const imageResponse = await fetch(data.url);
+
+        if (!imageResponse.ok) {
+          console.warn('[Bulk Download] Blob fetch failed for:', filename);
+          failCount++;
+          continue;
+        }
+
+        const blob = await imageResponse.blob();
+
+        // Create blob URL and trigger download
+        const blobUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+
+        // Cleanup after download
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }, 100);
+
+        successCount++;
+        // Add delay between downloads to avoid overwhelming the browser
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (err) {
+        console.error('[Bulk Download] Error:', err);
         failCount++;
       }
     }
