@@ -639,7 +639,7 @@ router.get('/:imageId/download', async (req, res) => {
         method: 'GET'
       };
 
-      https.get(options, (s3Response) => {
+      const request = https.get(options, (s3Response) => {
         if (s3Response.statusCode !== 200) {
           console.error('[Download Proxy] S3 fetch failed:', s3Response.statusCode);
           return res.status(500).json({ error: 'Failed to fetch file from storage' });
@@ -648,6 +648,9 @@ router.get('/:imageId/download', async (req, res) => {
         // Get content type from S3 or use default
         const contentType = s3Response.headers['content-type'] || 'application/octet-stream';
         const contentLength = s3Response.headers['content-length'];
+
+        console.log('[Download Proxy] Content-Type:', contentType);
+        console.log('[Download Proxy] Content-Length:', contentLength);
 
         // Set headers for download
         res.setHeader('Content-Type', contentType);
@@ -660,13 +663,36 @@ router.get('/:imageId/download', async (req, res) => {
 
         // Stream the file to the client
         console.log('[Download Proxy] Streaming file:', downloadFilename);
+
+        // Handle stream errors
+        s3Response.on('error', (err) => {
+          console.error('[Download Proxy] S3 stream error:', err);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Stream error' });
+          } else {
+            res.end();
+          }
+        });
+
+        // Handle client disconnect
+        res.on('close', () => {
+          console.log('[Download Proxy] Client disconnected');
+          s3Response.destroy();
+        });
+
+        // Pipe the S3 response to the client
         s3Response.pipe(res);
-      }).on('error', (err) => {
-        console.error('[Download Proxy] Error fetching from S3:', err);
+      });
+
+      request.on('error', (err) => {
+        console.error('[Download Proxy] Request error:', err);
         if (!res.headersSent) {
           res.status(500).json({ error: 'Failed to download file' });
         }
       });
+
+      // Important: Don't call res.end() or next() - let the stream finish naturally
+      return; // Exit early to prevent continuing to the else block
     } else {
       // For local files, return the URL (no CORS issue)
       res.json({

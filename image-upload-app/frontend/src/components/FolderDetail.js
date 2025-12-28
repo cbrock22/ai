@@ -212,29 +212,21 @@ const FolderDetail = () => {
         credentials: 'include'
       });
 
-      console.log('[Download] Response status:', response.status);
-      console.log('[Download] Response headers:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
-        // Try to parse error as JSON
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          alert(data.error || 'Failed to download image');
-        } else {
-          alert('Failed to download image');
-        }
+        console.error('[Download] Response not OK:', response.status);
+        alert('Failed to download image');
         return;
       }
 
       // Check if response is a file stream or JSON
       const contentType = response.headers.get('content-type');
+      console.log('[Download] Content-Type:', contentType);
 
       if (contentType && contentType.includes('application/json')) {
         // Local file - backend returned JSON with URL
         const data = await response.json();
         const filename = data.filename || imageName;
-        console.log('[Download] Local file, fetching:', data.url);
+        console.log('[Download] Local file mode, filename:', filename);
 
         const imageResponse = await fetch(data.url);
         const blob = await imageResponse.blob();
@@ -250,11 +242,10 @@ const FolderDetail = () => {
         setTimeout(() => {
           document.body.removeChild(link);
           URL.revokeObjectURL(blobUrl);
-          console.log('[Download] Cleaned up');
         }, 100);
       } else {
         // S3 file - backend is streaming it (proxied)
-        console.log('[Download] Receiving proxied file stream');
+        console.log('[Download] Proxied stream mode');
 
         // Get filename from Content-Disposition header or use default
         const disposition = response.headers.get('content-disposition');
@@ -270,7 +261,7 @@ const FolderDetail = () => {
 
         // Convert stream to blob
         const blob = await response.blob();
-        console.log('[Download] Blob created:', blob.size, 'bytes');
+        console.log('[Download] Blob size:', blob.size, 'bytes');
 
         // Create blob URL and trigger download
         const blobUrl = URL.createObjectURL(blob);
@@ -279,16 +270,15 @@ const FolderDetail = () => {
         link.download = filename;
         link.style.display = 'none';
         document.body.appendChild(link);
-
-        console.log('[Download] Triggering download...');
         link.click();
 
         // Cleanup
         setTimeout(() => {
           document.body.removeChild(link);
           URL.revokeObjectURL(blobUrl);
-          console.log('[Download] Cleaned up');
         }, 100);
+
+        console.log('[Download] Download triggered successfully');
       }
 
     } catch (err) {
