@@ -666,35 +666,24 @@ router.get('/:imageId/download', async (req, res) => {
         console.log('[Download Proxy] Content-Type:', contentType);
         console.log('[Download Proxy] Content-Length:', contentLength);
 
+        // Convert stream to buffer (better compatibility with nginx/reverse proxies)
+        const chunks = [];
+        for await (const chunk of s3Response.Body) {
+          chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+
+        console.log('[Download Proxy] Buffered file size:', buffer.length, 'bytes');
+
+        // Set headers and send buffer
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length, Content-Type');
-        if (contentLength) {
-          res.setHeader('Content-Length', contentLength);
-        }
+        res.setHeader('Content-Length', buffer.length);
 
-        // Stream the file to the client
-        console.log('[Download Proxy] Streaming file:', downloadFilename);
-
-        // Handle stream errors
-        s3Response.Body.on('error', (err) => {
-          console.error('[Download Proxy] Stream error:', err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: 'Stream error' });
-          } else {
-            res.end();
-          }
-        });
-
-        // Handle client disconnect
-        res.on('close', () => {
-          console.log('[Download Proxy] Client disconnected');
-          s3Response.Body.destroy();
-        });
-
-        // Pipe the S3 response body to the client
-        s3Response.Body.pipe(res);
+        console.log('[Download Proxy] Sending file:', downloadFilename);
+        res.send(buffer);
 
         return; // Exit early to prevent continuing to the else block
       } catch (err) {
