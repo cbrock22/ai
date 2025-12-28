@@ -144,6 +144,13 @@ const FolderDetail = () => {
     }
   }, [inView, hasMore, loadingMore, loading, loadMore]);
 
+  // Cleanup: unlock scrolling when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   const toggleFavorite = useCallback(async (imageId, currentStatus) => {
     try {
       const response = await fetch(`${apiUrl}/api/images/${imageId}/favorite`, {
@@ -234,10 +241,14 @@ const FolderDetail = () => {
 
   const openLightbox = useCallback((image) => {
     setSelectedImage(image);
+    // Lock scrolling when opening lightbox
+    document.body.style.overflow = 'hidden';
   }, []);
 
   const closeLightbox = useCallback(() => {
     setSelectedImage(null);
+    // Unlock scrolling when closing lightbox
+    document.body.style.overflow = 'unset';
   }, []);
 
   // Check if user can delete images

@@ -528,13 +528,13 @@
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   transition: all 0.3s ease;
   font-weight: 300;
-  line-height: 1;
-  padding: 0;
+  line-height: 1 !important;
+  padding: 0 !important;
 }
 
 .lightbox-content .close-btn:hover {
