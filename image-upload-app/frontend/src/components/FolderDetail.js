@@ -204,6 +204,14 @@ const FolderDetail = () => {
     try {
       console.log('[Download] Starting download for:', imageName);
 
+      // Detect OS (not browser)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isAndroid = /Android/.test(navigator.userAgent);
+      const isMobile = isIOS || isAndroid;
+
+      console.log('[Download] Device:', { isIOS, isAndroid, isMobile });
+
       // Fetch directly from backend (it will proxy S3 or return local file)
       const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
         headers: {
@@ -222,34 +230,23 @@ const FolderDetail = () => {
       const contentType = response.headers.get('content-type');
       console.log('[Download] Content-Type:', contentType);
 
+      let blob;
+      let filename = imageName;
+
       if (contentType && contentType.includes('application/json')) {
         // Local file - backend returned JSON with URL
         const data = await response.json();
-        const filename = data.filename || imageName;
+        filename = data.filename || imageName;
         console.log('[Download] Local file mode, filename:', filename);
 
         const imageResponse = await fetch(data.url);
-        const blob = await imageResponse.blob();
-        const blobUrl = URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = filename;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
-        }, 100);
+        blob = await imageResponse.blob();
       } else {
-        // S3 file - backend is streaming it (proxied)
-        console.log('[Download] Proxied stream mode');
+        // S3 file - backend sent buffered file
+        console.log('[Download] Buffered file mode');
 
-        // Get filename from Content-Disposition header or use default
+        // Get filename from Content-Disposition header
         const disposition = response.headers.get('content-disposition');
-        let filename = imageName;
         if (disposition && disposition.includes('filename=')) {
           const matches = disposition.match(/filename="(.+?)"/);
           if (matches && matches[1]) {
@@ -257,13 +254,48 @@ const FolderDetail = () => {
           }
         }
 
-        console.log('[Download] Filename:', filename);
+        blob = await response.blob();
+      }
 
-        // Convert stream to blob
-        const blob = await response.blob();
-        console.log('[Download] Blob size:', blob.size, 'bytes');
+      console.log('[Download] Blob size:', blob.size, 'bytes');
 
-        // Create blob URL and trigger download
+      // Handle download based on OS
+      if (isIOS) {
+        // iOS: Use native share sheet (works in all iOS browsers)
+        console.log('[Download] iOS detected - using native share');
+
+        // Create a File object with proper MIME type
+        const file = new File([blob], filename, { type: blob.type });
+
+        // Check if Web Share API is available (iOS Safari, iOS Chrome)
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Save Image',
+              text: filename
+            });
+            console.log('[Download] Shared via Web Share API');
+          } catch (err) {
+            if (err.name !== 'AbortError') {
+              console.warn('[Download] Share failed, falling back to download:', err);
+              // Fallback to download link
+              const blobUrl = URL.createObjectURL(blob);
+              window.open(blobUrl, '_blank');
+              setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+            }
+          }
+        } else {
+          // Fallback: Open in new tab (user can then save from there)
+          console.log('[Download] Web Share not available, opening in new tab');
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+        }
+      } else {
+        // Android & Desktop: Standard download
+        console.log('[Download] Standard download for Android/Desktop');
+
         const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -340,6 +372,15 @@ const FolderDetail = () => {
   const handleBulkDownload = useCallback(async () => {
     if (selectedImages.size === 0) return;
 
+    // Detect OS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isIOS && selectedImages.size > 1) {
+      alert('iOS does not support bulk downloads. Please download images one at a time or use the share button.');
+      return;
+    }
+
     const imagesToDownload = Array.from(selectedImages);
     let successCount = 0;
     let failCount = 0;
@@ -351,7 +392,7 @@ const FolderDetail = () => {
 
         console.log('[Bulk Download] Downloading:', image.originalName || image.filename);
 
-        // Fetch directly from backend (it will proxy S3 or return local file)
+        // Fetch directly from backend
         const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -364,19 +405,17 @@ const FolderDetail = () => {
           continue;
         }
 
-        // Check if response is a file stream or JSON
+        // Get blob and filename
         const contentType = response.headers.get('content-type');
         let filename = image.originalName || image.filename;
         let blob;
 
         if (contentType && contentType.includes('application/json')) {
-          // Local file - backend returned JSON with URL
           const data = await response.json();
           filename = data.filename || filename;
           const imageResponse = await fetch(data.url);
           blob = await imageResponse.blob();
         } else {
-          // S3 file - backend is streaming it (proxied)
           const disposition = response.headers.get('content-disposition');
           if (disposition && disposition.includes('filename=')) {
             const matches = disposition.match(/filename="(.+?)"/);
@@ -387,7 +426,7 @@ const FolderDetail = () => {
           blob = await response.blob();
         }
 
-        // Create blob URL and trigger download
+        // Trigger download
         const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -396,14 +435,14 @@ const FolderDetail = () => {
         document.body.appendChild(link);
         link.click();
 
-        // Cleanup after download
+        // Cleanup
         setTimeout(() => {
           document.body.removeChild(link);
           URL.revokeObjectURL(blobUrl);
         }, 100);
 
         successCount++;
-        // Add delay between downloads to avoid overwhelming the browser
+        // Delay between downloads
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (err) {
         console.error('[Bulk Download] Error:', err);
