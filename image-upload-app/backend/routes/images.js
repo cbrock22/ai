@@ -3,7 +3,7 @@ const multer = require('multer');
 const sharp = require('sharp');
 const { join } = require('path');
 const { existsSync, unlinkSync } = require('fs');
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const Image = require('../models/Image');
 const { authenticateToken } = require('../middleware/auth');
@@ -625,34 +625,47 @@ router.get('/:imageId/download', async (req, res) => {
     const downloadFilename = image.originalName || image.originalFilename || image.filename;
 
     // If it's an S3 URL, proxy the download to avoid CORS issues
-    if (downloadUrl.includes('s3.')) {
-      console.log('[Download Proxy] Fetching from S3:', downloadUrl);
+    if (downloadUrl.includes('s3.') && process.env.AWS_ACCESS_KEY_ID) {
+      console.log('[Download Proxy] Fetching from S3 via AWS SDK:', downloadUrl);
 
-      // Use native https module to fetch from S3
-      const https = require('https');
-      const url = require('url');
-
-      const parsedUrl = url.parse(downloadUrl);
-      const options = {
-        hostname: parsedUrl.hostname,
-        path: parsedUrl.path,
-        method: 'GET'
-      };
-
-      const request = https.get(options, (s3Response) => {
-        if (s3Response.statusCode !== 200) {
-          console.error('[Download Proxy] S3 fetch failed:', s3Response.statusCode);
-          return res.status(500).json({ error: 'Failed to fetch file from storage' });
+      try {
+        // Extract bucket name and key from URL
+        // URL format: https://bucket-name.s3.region.amazonaws.com/key
+        const urlParts = downloadUrl.match(/https:\/\/([^.]+)\.s3\.[^.]+\.amazonaws\.com\/(.+)/);
+        if (!urlParts) {
+          console.error('[Download Proxy] Could not parse S3 URL:', downloadUrl);
+          return res.status(500).json({ error: 'Invalid S3 URL format' });
         }
 
-        // Get content type from S3 or use default
-        const contentType = s3Response.headers['content-type'] || 'application/octet-stream';
-        const contentLength = s3Response.headers['content-length'];
+        const bucketName = urlParts[1];
+        const objectKey = decodeURIComponent(urlParts[2]);
+
+        console.log('[Download Proxy] Bucket:', bucketName, 'Key:', objectKey);
+
+        // Initialize S3 client
+        const s3Client = new S3Client({
+          region: process.env.AWS_REGION || 'us-east-1',
+          credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+          }
+        });
+
+        // Get object from S3
+        const command = new GetObjectCommand({
+          Bucket: bucketName,
+          Key: objectKey
+        });
+
+        const s3Response = await s3Client.send(command);
+
+        // Set response headers
+        const contentType = s3Response.ContentType || 'application/octet-stream';
+        const contentLength = s3Response.ContentLength;
 
         console.log('[Download Proxy] Content-Type:', contentType);
         console.log('[Download Proxy] Content-Length:', contentLength);
 
-        // Set headers for download
         res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -665,8 +678,8 @@ router.get('/:imageId/download', async (req, res) => {
         console.log('[Download Proxy] Streaming file:', downloadFilename);
 
         // Handle stream errors
-        s3Response.on('error', (err) => {
-          console.error('[Download Proxy] S3 stream error:', err);
+        s3Response.Body.on('error', (err) => {
+          console.error('[Download Proxy] Stream error:', err);
           if (!res.headersSent) {
             res.status(500).json({ error: 'Stream error' });
           } else {
@@ -677,22 +690,17 @@ router.get('/:imageId/download', async (req, res) => {
         // Handle client disconnect
         res.on('close', () => {
           console.log('[Download Proxy] Client disconnected');
-          s3Response.destroy();
+          s3Response.Body.destroy();
         });
 
-        // Pipe the S3 response to the client
-        s3Response.pipe(res);
-      });
+        // Pipe the S3 response body to the client
+        s3Response.Body.pipe(res);
 
-      request.on('error', (err) => {
-        console.error('[Download Proxy] Request error:', err);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Failed to download file' });
-        }
-      });
-
-      // Important: Don't call res.end() or next() - let the stream finish naturally
-      return; // Exit early to prevent continuing to the else block
+        return; // Exit early to prevent continuing to the else block
+      } catch (err) {
+        console.error('[Download Proxy] AWS SDK error:', err);
+        return res.status(500).json({ error: 'Failed to download file from S3' });
+      }
     } else {
       // For local files, return the URL (no CORS issue)
       res.json({
