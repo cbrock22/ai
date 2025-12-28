@@ -269,7 +269,7 @@ const PublicFolderView = () => {
       {/* Lightbox */}
       {selectedImage && (
         <div className="lightbox" onClick={closeLightbox}>
-          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+          <div className="lightbox-content">
             {/* Desktop close button - circle with X */}
             <button className="close-btn close-btn-desktop" onClick={closeLightbox}>
               &times;
@@ -280,15 +280,15 @@ const PublicFolderView = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <img src={selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} />
-            <div className="lightbox-info">
+            <img src={selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} onClick={(e) => e.stopPropagation()} />
+            <div className="lightbox-info" onClick={(e) => e.stopPropagation()}>
               <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
               <p><strong>Uploaded by:</strong> {selectedImage.uploadedBy?.username || 'Unknown'}</p>
               <p className="upload-date">
                 <strong>Date:</strong> {new Date(selectedImage.uploadDate).toLocaleString()}
               </p>
             </div>
-            <div className="lightbox-actions">
+            <div className="lightbox-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 className="btn btn-primary"
                 onClick={() => downloadImage(selectedImage._id, selectedImage.originalName || selectedImage.filename)}
