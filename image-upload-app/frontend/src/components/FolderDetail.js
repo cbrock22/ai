@@ -204,7 +204,7 @@ const FolderDetail = () => {
     try {
       console.log('[Download] Starting download for:', imageName);
 
-      // Get download URL
+      // Fetch directly from backend (it will proxy S3 or return local file)
       const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -212,64 +212,84 @@ const FolderDetail = () => {
         credentials: 'include'
       });
 
+      console.log('[Download] Response status:', response.status);
+      console.log('[Download] Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        const data = await response.json();
-        alert(data.error || 'Failed to download image');
+        // Try to parse error as JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          alert(data.error || 'Failed to download image');
+        } else {
+          alert('Failed to download image');
+        }
         return;
       }
 
-      const data = await response.json();
-      const filename = data.filename || imageName;
-      console.log('[Download] Download URL:', data.url);
-      console.log('[Download] Filename:', filename);
+      // Check if response is a file stream or JSON
+      const contentType = response.headers.get('content-type');
 
-      // Fetch the actual image as blob
-      console.log('[Download] Fetching image as blob...');
-      const imageResponse = await fetch(data.url);
+      if (contentType && contentType.includes('application/json')) {
+        // Local file - backend returned JSON with URL
+        const data = await response.json();
+        const filename = data.filename || imageName;
+        console.log('[Download] Local file, fetching:', data.url);
 
-      console.log('[Download] Image fetch status:', imageResponse.status);
-      console.log('[Download] Response headers:', Object.fromEntries(imageResponse.headers.entries()));
+        const imageResponse = await fetch(data.url);
+        const blob = await imageResponse.blob();
+        const blobUrl = URL.createObjectURL(blob);
 
-      if (!imageResponse.ok) {
-        console.warn('[Download] Blob fetch failed, falling back to direct download');
-        // Fallback to direct download if CORS blocks blob fetch
         const link = document.createElement('a');
-        link.href = data.url;
+        link.href = blobUrl;
         link.download = filename;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
+        link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
-        return;
-      }
 
-      const blob = await imageResponse.blob();
-      console.log('[Download] Blob created:', blob.size, 'bytes, type:', blob.type);
-
-      // Create blob URL and trigger download
-      const blobUrl = URL.createObjectURL(blob);
-      console.log('[Download] Blob URL created:', blobUrl);
-
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-
-      console.log('[Download] Triggering download...');
-      // Use setTimeout to ensure the link is in the DOM before clicking
-      setTimeout(() => {
-        link.click();
-        console.log('[Download] Download triggered successfully');
-
-        // Remove from DOM after clicking
         setTimeout(() => {
           document.body.removeChild(link);
           URL.revokeObjectURL(blobUrl);
           console.log('[Download] Cleaned up');
         }, 100);
-      }, 0);
+      } else {
+        // S3 file - backend is streaming it (proxied)
+        console.log('[Download] Receiving proxied file stream');
+
+        // Get filename from Content-Disposition header or use default
+        const disposition = response.headers.get('content-disposition');
+        let filename = imageName;
+        if (disposition && disposition.includes('filename=')) {
+          const matches = disposition.match(/filename="(.+?)"/);
+          if (matches && matches[1]) {
+            filename = matches[1];
+          }
+        }
+
+        console.log('[Download] Filename:', filename);
+
+        // Convert stream to blob
+        const blob = await response.blob();
+        console.log('[Download] Blob created:', blob.size, 'bytes');
+
+        // Create blob URL and trigger download
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+
+        console.log('[Download] Triggering download...');
+        link.click();
+
+        // Cleanup
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+          console.log('[Download] Cleaned up');
+        }, 100);
+      }
 
     } catch (err) {
       console.error('[Download] Error:', err);
@@ -341,7 +361,7 @@ const FolderDetail = () => {
 
         console.log('[Bulk Download] Downloading:', image.originalName || image.filename);
 
-        // Get download URL
+        // Fetch directly from backend (it will proxy S3 or return local file)
         const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -354,23 +374,31 @@ const FolderDetail = () => {
           continue;
         }
 
-        const data = await response.json();
-        const filename = data.filename || image.originalName || image.filename;
+        // Check if response is a file stream or JSON
+        const contentType = response.headers.get('content-type');
+        let filename = image.originalName || image.filename;
+        let blob;
 
-        // Fetch the actual image as blob
-        const imageResponse = await fetch(data.url);
-
-        if (!imageResponse.ok) {
-          console.warn('[Bulk Download] Blob fetch failed for:', filename);
-          failCount++;
-          continue;
+        if (contentType && contentType.includes('application/json')) {
+          // Local file - backend returned JSON with URL
+          const data = await response.json();
+          filename = data.filename || filename;
+          const imageResponse = await fetch(data.url);
+          blob = await imageResponse.blob();
+        } else {
+          // S3 file - backend is streaming it (proxied)
+          const disposition = response.headers.get('content-disposition');
+          if (disposition && disposition.includes('filename=')) {
+            const matches = disposition.match(/filename="(.+?)"/);
+            if (matches && matches[1]) {
+              filename = matches[1];
+            }
+          }
+          blob = await response.blob();
         }
-
-        const blob = await imageResponse.blob();
 
         // Create blob URL and trigger download
         const blobUrl = URL.createObjectURL(blob);
-
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = filename;
