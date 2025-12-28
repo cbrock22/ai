@@ -620,17 +620,63 @@ router.get('/:imageId/download', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Return the original file URL or fall back to compressed if original doesn't exist
+    // Get the download URL and filename
     const downloadUrl = image.originalUrl || image.url;
-    const downloadFilename = image.originalFilename || image.filename;
+    const downloadFilename = image.originalName || image.originalFilename || image.filename;
 
-    res.json({
-      url: downloadUrl,
-      filename: image.originalName || downloadFilename
-    });
+    // If it's an S3 URL, proxy the download to avoid CORS issues
+    if (downloadUrl.includes('s3.')) {
+      console.log('[Download Proxy] Fetching from S3:', downloadUrl);
+
+      // Use native https module to fetch from S3
+      const https = require('https');
+      const url = require('url');
+
+      const parsedUrl = url.parse(downloadUrl);
+      const options = {
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.path,
+        method: 'GET'
+      };
+
+      https.get(options, (s3Response) => {
+        if (s3Response.statusCode !== 200) {
+          console.error('[Download Proxy] S3 fetch failed:', s3Response.statusCode);
+          return res.status(500).json({ error: 'Failed to fetch file from storage' });
+        }
+
+        // Get content type from S3 or use default
+        const contentType = s3Response.headers['content-type'] || 'application/octet-stream';
+        const contentLength = s3Response.headers['content-length'];
+
+        // Set headers for download
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length, Content-Type');
+        if (contentLength) {
+          res.setHeader('Content-Length', contentLength);
+        }
+
+        // Stream the file to the client
+        console.log('[Download Proxy] Streaming file:', downloadFilename);
+        s3Response.pipe(res);
+      }).on('error', (err) => {
+        console.error('[Download Proxy] Error fetching from S3:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to download file' });
+        }
+      });
+    } else {
+      // For local files, return the URL (no CORS issue)
+      res.json({
+        url: downloadUrl,
+        filename: downloadFilename
+      });
+    }
   } catch (error) {
     console.error('Download image error:', error);
-    res.status(500).json({ error: 'Failed to get download link' });
+    res.status(500).json({ error: 'Failed to download file' });
   }
 });
 
