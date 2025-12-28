@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useInView } from 'react-intersection-observer';
 import { useAuth } from '../context/AuthContext';
+import LazyImage from './LazyImage';
 import '../common.css';
 import './FolderDetail.css';
 
@@ -533,19 +534,13 @@ const FolderDetail = () => {
                     />
                   </div>
                 )}
-                <div
-                  className="image-container"
+                <LazyImage
+                  image={image}
+                  alt={image.originalName || image.filename}
                   onClick={() => selectionMode ? toggleImageSelection(image._id) : openLightbox(image)}
-                >
-                  <img
-                    src={image.url}
-                    alt={image.originalName || image.filename}
-                    loading="lazy"
-                  />
-                  <div className="image-overlay">
-                    <span>{selectionMode ? (selectedImages.has(image._id) ? 'Selected' : 'Select') : 'View'}</span>
-                  </div>
-                </div>
+                  selectionMode={selectionMode}
+                  isSelected={selectedImages.has(image._id)}
+                />
 
                 <div className="image-meta">
                   <div className="image-name">
