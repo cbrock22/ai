@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useInView } from 'react-intersection-observer';
 import { useAuth } from '../context/AuthContext';
 import '../common.css';
 import './FolderDetail.css';
@@ -12,12 +13,16 @@ const FolderDetail = () => {
   const [images, setImages] = useState([]);
   const [filteredImages, setFilteredImages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFavorites, setFilterFavorites] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedImages, setSelectedImages] = useState(new Set());
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalImages, setTotalImages] = useState(0);
   const { user } = useAuth();
 
   const fetchFolder = useCallback(async () => {
@@ -40,10 +45,15 @@ const FolderDetail = () => {
     }
   }, [apiUrl, folderId, token]);
 
-  const fetchImages = useCallback(async () => {
+  const fetchImages = useCallback(async (pageNum = 1, append = false) => {
     try {
-      setLoading(true);
-      const response = await fetch(`${apiUrl}/api/images/folder/${folderId}?limit=1000`, {
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const response = await fetch(`${apiUrl}/api/images/folder/${folderId}?page=${pageNum}&limit=100`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -54,7 +64,24 @@ const FolderDetail = () => {
         const data = await response.json();
         // Handle both paginated response (new) and array response (old)
         const imageArray = data.images ? data.images : data;
-        setImages(imageArray);
+
+        if (append) {
+          setImages(prev => [...prev, ...imageArray]);
+        } else {
+          setImages(imageArray);
+        }
+
+        // Set pagination metadata
+        if (data.pagination) {
+          setTotalImages(data.pagination.total);
+          setHasMore(data.pagination.hasMore);
+          setPage(data.pagination.page);
+        } else {
+          // Fallback for non-paginated response
+          setTotalImages(imageArray.length);
+          setHasMore(false);
+        }
+
         setError('');
       } else {
         const data = await response.json();
@@ -64,6 +91,7 @@ const FolderDetail = () => {
       setError('Failed to connect to server');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [apiUrl, folderId, token]);
 
@@ -89,12 +117,31 @@ const FolderDetail = () => {
 
   useEffect(() => {
     fetchFolder();
-    fetchImages();
-  }, [fetchFolder, fetchImages]);
+    fetchImages(1, false);
+  }, [fetchFolder, folderId, token, apiUrl]); // Don't include fetchImages to avoid infinite loop
 
   useEffect(() => {
     filterAndSortImages();
   }, [filterAndSortImages]);
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !loadingMore && !loading) {
+      const nextPage = page + 1;
+      fetchImages(nextPage, true);
+    }
+  }, [hasMore, loadingMore, loading, page, fetchImages]);
+
+  // Infinite scroll with IntersectionObserver
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: '400px' // Start loading 400px before reaching the bottom
+  });
+
+  useEffect(() => {
+    if (inView && hasMore && !loadingMore && !loading) {
+      loadMore();
+    }
+  }, [inView, hasMore, loadingMore, loading, loadMore]);
 
   const toggleFavorite = useCallback(async (imageId, currentStatus) => {
     try {
@@ -357,7 +404,7 @@ const FolderDetail = () => {
         <div className="folder-info">
           <h2>{folder?.name}</h2>
           <p className="folder-meta">
-            {images.length} {images.length === 1 ? 'image' : 'images'}
+            {totalImages} {totalImages === 1 ? 'image' : 'images'}
             {folder?.isPublic && <span className="badge-public">Public</span>}
           </p>
         </div>
@@ -468,7 +515,8 @@ const FolderDetail = () => {
         <>
           <div className="results-info">
             <p>
-              Showing {filteredImages.length} of {images.length} {images.length === 1 ? 'image' : 'images'}
+              Showing {filteredImages.length} of {totalImages} {totalImages === 1 ? 'image' : 'images'}
+              {images.length < totalImages && ` (${images.length} loaded)`}
             </p>
           </div>
 
@@ -542,6 +590,18 @@ const FolderDetail = () => {
               </div>
             ))}
           </div>
+
+          {/* Infinite scroll trigger */}
+          {hasMore && (
+            <div ref={loadMoreRef} style={{ height: '20px', margin: '20px 0' }}>
+              {loadingMore && (
+                <div className="loading-more">
+                  <div className="spinner"></div>
+                  <p>Loading more images...</p>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
