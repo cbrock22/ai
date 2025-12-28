@@ -6,12 +6,122 @@ const { existsSync, unlinkSync } = require('fs');
 const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const Image = require('../models/Image');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, optionalAuthentication } = require('../middleware/auth');
 const { checkFolderAccess } = require('../middleware/folderPermission');
 
 const router = express.Router();
 
-// All routes require authentication
+// Download route - uses optional authentication to support public folders
+router.get('/:imageId/download', optionalAuthentication, async (req, res) => {
+  try {
+    const image = await Image.findById(req.params.imageId).populate('folder');
+
+    if (!image) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    // Check if user has access to the folder
+    const folder = image.folder;
+
+    // Allow access if folder is public (no authentication required)
+    // Otherwise, require authentication and check permissions
+    let hasAccess = folder.isPublic;
+
+    if (!hasAccess && req.user) {
+      hasAccess =
+        folder.owner.toString() === req.user._id.toString() ||
+        folder.permissions.some(p => p.user.toString() === req.user._id.toString()) ||
+        req.user.role === 'admin';
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Get the download URL and filename
+    const downloadUrl = image.originalUrl || image.url;
+    const downloadFilename = image.originalName || image.originalFilename || image.filename;
+
+    // If it's an S3 URL, proxy the download to avoid CORS issues
+    if (downloadUrl.includes('s3.') && process.env.AWS_ACCESS_KEY_ID) {
+      console.log('[Download Proxy] Fetching from S3 via AWS SDK:', downloadUrl);
+
+      try {
+        // Extract bucket name and key from URL
+        // URL format: https://bucket-name.s3.region.amazonaws.com/key
+        const urlParts = downloadUrl.match(/https:\/\/([^.]+)\.s3\.[^.]+\.amazonaws\.com\/(.+)/);
+        if (!urlParts) {
+          console.error('[Download Proxy] Could not parse S3 URL:', downloadUrl);
+          return res.status(500).json({ error: 'Invalid S3 URL format' });
+        }
+
+        const bucketName = urlParts[1];
+        const objectKey = decodeURIComponent(urlParts[2]);
+
+        console.log('[Download Proxy] Bucket:', bucketName, 'Key:', objectKey);
+
+        // Initialize S3 client
+        const s3Client = new S3Client({
+          region: process.env.AWS_REGION || 'us-east-1',
+          credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+          }
+        });
+
+        // Get object from S3
+        const command = new GetObjectCommand({
+          Bucket: bucketName,
+          Key: objectKey
+        });
+
+        const s3Response = await s3Client.send(command);
+
+        // Set response headers
+        const contentType = s3Response.ContentType || 'application/octet-stream';
+        const contentLength = s3Response.ContentLength;
+
+        console.log('[Download Proxy] Content-Type:', contentType);
+        console.log('[Download Proxy] Content-Length:', contentLength);
+
+        // Convert stream to buffer (better compatibility with nginx/reverse proxies)
+        const chunks = [];
+        for await (const chunk of s3Response.Body) {
+          chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+
+        console.log('[Download Proxy] Buffered file size:', buffer.length, 'bytes');
+
+        // Set headers and send buffer
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length, Content-Type');
+        res.setHeader('Content-Length', buffer.length);
+
+        console.log('[Download Proxy] Sending file:', downloadFilename);
+        res.send(buffer);
+
+        return; // Exit early to prevent continuing to the else block
+      } catch (err) {
+        console.error('[Download Proxy] AWS SDK error:', err);
+        return res.status(500).json({ error: 'Failed to download file from S3' });
+      }
+    } else {
+      // For local files, return the URL (no CORS issue)
+      res.json({
+        url: downloadUrl,
+        filename: downloadFilename
+      });
+    }
+  } catch (error) {
+    console.error('Download image error:', error);
+    res.status(500).json({ error: 'Failed to download file' });
+  }
+});
+
+// All other routes require authentication
 router.use(authenticateToken);
 
 // Processing queue to prevent memory exhaustion
@@ -596,116 +706,6 @@ router.delete('/:imageId', async (req, res) => {
   } catch (error) {
     console.error('Delete image error:', error);
     res.status(500).json({ error: 'Failed to delete image' });
-  }
-});
-
-// Download original uncompressed image
-router.get('/:imageId/download', async (req, res) => {
-  try {
-    const image = await Image.findById(req.params.imageId).populate('folder');
-
-    if (!image) {
-      return res.status(404).json({ error: 'Image not found' });
-    }
-
-    // Check if user has access to the folder
-    const folder = image.folder;
-
-    // Allow access if folder is public (no authentication required)
-    // Otherwise, require authentication and check permissions
-    let hasAccess = folder.isPublic;
-
-    if (!hasAccess && req.user) {
-      hasAccess =
-        folder.owner.toString() === req.user._id.toString() ||
-        folder.permissions.some(p => p.user.toString() === req.user._id.toString()) ||
-        req.user.role === 'admin';
-    }
-
-    if (!hasAccess) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    // Get the download URL and filename
-    const downloadUrl = image.originalUrl || image.url;
-    const downloadFilename = image.originalName || image.originalFilename || image.filename;
-
-    // If it's an S3 URL, proxy the download to avoid CORS issues
-    if (downloadUrl.includes('s3.') && process.env.AWS_ACCESS_KEY_ID) {
-      console.log('[Download Proxy] Fetching from S3 via AWS SDK:', downloadUrl);
-
-      try {
-        // Extract bucket name and key from URL
-        // URL format: https://bucket-name.s3.region.amazonaws.com/key
-        const urlParts = downloadUrl.match(/https:\/\/([^.]+)\.s3\.[^.]+\.amazonaws\.com\/(.+)/);
-        if (!urlParts) {
-          console.error('[Download Proxy] Could not parse S3 URL:', downloadUrl);
-          return res.status(500).json({ error: 'Invalid S3 URL format' });
-        }
-
-        const bucketName = urlParts[1];
-        const objectKey = decodeURIComponent(urlParts[2]);
-
-        console.log('[Download Proxy] Bucket:', bucketName, 'Key:', objectKey);
-
-        // Initialize S3 client
-        const s3Client = new S3Client({
-          region: process.env.AWS_REGION || 'us-east-1',
-          credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-          }
-        });
-
-        // Get object from S3
-        const command = new GetObjectCommand({
-          Bucket: bucketName,
-          Key: objectKey
-        });
-
-        const s3Response = await s3Client.send(command);
-
-        // Set response headers
-        const contentType = s3Response.ContentType || 'application/octet-stream';
-        const contentLength = s3Response.ContentLength;
-
-        console.log('[Download Proxy] Content-Type:', contentType);
-        console.log('[Download Proxy] Content-Length:', contentLength);
-
-        // Convert stream to buffer (better compatibility with nginx/reverse proxies)
-        const chunks = [];
-        for await (const chunk of s3Response.Body) {
-          chunks.push(chunk);
-        }
-        const buffer = Buffer.concat(chunks);
-
-        console.log('[Download Proxy] Buffered file size:', buffer.length, 'bytes');
-
-        // Set headers and send buffer
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length, Content-Type');
-        res.setHeader('Content-Length', buffer.length);
-
-        console.log('[Download Proxy] Sending file:', downloadFilename);
-        res.send(buffer);
-
-        return; // Exit early to prevent continuing to the else block
-      } catch (err) {
-        console.error('[Download Proxy] AWS SDK error:', err);
-        return res.status(500).json({ error: 'Failed to download file from S3' });
-      }
-    } else {
-      // For local files, return the URL (no CORS issue)
-      res.json({
-        url: downloadUrl,
-        filename: downloadFilename
-      });
-    }
-  } catch (error) {
-    console.error('Download image error:', error);
-    res.status(500).json({ error: 'Failed to download file' });
   }
 });
 
