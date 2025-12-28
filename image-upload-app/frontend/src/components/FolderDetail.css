@@ -511,7 +511,7 @@
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
 }
 
-.close-btn {
+.lightbox-content .close-btn {
   position: absolute;
   top: -50px;
   left: 50%;
@@ -537,7 +537,7 @@
   padding: 0;
 }
 
-.close-btn:hover {
+.lightbox-content .close-btn:hover {
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.3) 0%,
     rgba(255, 255, 255, 0.2) 100%);
