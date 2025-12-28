@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useImageDownload } from '../hooks/useImageDownload';
 import '../common.css';
 import './PublicFolderView.css';
 
@@ -8,6 +9,7 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 const PublicFolderView = () => {
   const { folderId } = useParams();
   const navigate = useNavigate();
+  const { downloadImage } = useImageDownload();
   const [folder, setFolder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -108,10 +110,19 @@ const PublicFolderView = () => {
 
   const openLightbox = useCallback((image) => {
     setSelectedImage(image);
+    document.body.style.overflow = 'hidden';
   }, []);
 
   const closeLightbox = useCallback(() => {
     setSelectedImage(null);
+    document.body.style.overflow = 'unset';
+  }, []);
+
+  // Cleanup: unlock scrolling when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, []);
 
   if (loading) {
@@ -271,17 +282,15 @@ const PublicFolderView = () => {
               </p>
             </div>
             <div className="lightbox-actions">
-              <a
-                href={selectedImage.url}
-                download={selectedImage.originalName || selectedImage.filename}
+              <button
                 className="btn btn-primary"
-                onClick={(e) => e.stopPropagation()}
+                onClick={() => downloadImage(selectedImage._id, selectedImage.originalName || selectedImage.filename)}
               >
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 Download
-              </a>
+              </button>
             </div>
           </div>
         </div>

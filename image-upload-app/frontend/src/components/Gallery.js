@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { useAuth } from '../context/AuthContext';
+import { useImageDownload } from '../hooks/useImageDownload';
 import LazyImage from './LazyImage';
 import '../common.css';
 import './Gallery.css';
 
 const Gallery = () => {
   const { token, apiUrl, user, isAdminView } = useAuth();
+  const { downloadImage } = useImageDownload();
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -185,81 +187,8 @@ const Gallery = () => {
   }, [selectedImage, token, apiUrl]);
 
   const handleDownload = useCallback(async (imageId, imageName) => {
-    try {
-      console.log('[Download] Starting download for:', imageName);
-
-      // Get download URL
-      const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        alert(data.error || 'Failed to download image');
-        return;
-      }
-
-      const data = await response.json();
-      const filename = data.filename || imageName;
-      console.log('[Download] Download URL:', data.url);
-      console.log('[Download] Filename:', filename);
-
-      // Fetch the actual image as blob
-      console.log('[Download] Fetching image as blob...');
-      const imageResponse = await fetch(data.url);
-
-      console.log('[Download] Image fetch status:', imageResponse.status);
-      console.log('[Download] Response headers:', Object.fromEntries(imageResponse.headers.entries()));
-
-      if (!imageResponse.ok) {
-        console.warn('[Download] Blob fetch failed, falling back to direct download');
-        // Fallback to direct download if CORS blocks blob fetch
-        const link = document.createElement('a');
-        link.href = data.url;
-        link.download = filename;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        return;
-      }
-
-      const blob = await imageResponse.blob();
-      console.log('[Download] Blob created:', blob.size, 'bytes, type:', blob.type);
-
-      // Create blob URL and trigger download
-      const blobUrl = URL.createObjectURL(blob);
-      console.log('[Download] Blob URL created:', blobUrl);
-
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-
-      console.log('[Download] Triggering download...');
-      // Use setTimeout to ensure the link is in the DOM before clicking
-      setTimeout(() => {
-        link.click();
-        console.log('[Download] Download triggered successfully');
-
-        // Remove from DOM after clicking
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
-          console.log('[Download] Cleaned up');
-        }, 100);
-      }, 0);
-    } catch (err) {
-      console.error('[Download] Error:', err);
-      console.error('[Download] Error stack:', err.stack);
-      alert('Failed to download image. Check console for details.');
-    }
-  }, [apiUrl, token]);
+    await downloadImage(imageId, imageName);
+  }, [downloadImage]);
 
   const openLightbox = useCallback((image) => {
     setSelectedImage(image);
@@ -317,6 +246,15 @@ const Gallery = () => {
   const handleBulkDownload = useCallback(async () => {
     if (selectedImages.size === 0) return;
 
+    // Check if iOS - iOS doesn't support bulk downloads well
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isIOS && selectedImages.size > 1) {
+      alert('Bulk download is not supported on iOS. Please download images one at a time or use a desktop browser.');
+      return;
+    }
+
     const imagesToDownload = Array.from(selectedImages);
     let successCount = 0;
     let failCount = 0;
@@ -326,49 +264,13 @@ const Gallery = () => {
         const image = images.find(img => img._id === imageId);
         if (!image) continue;
 
-        // Get download URL
-        const response = await fetch(`${apiUrl}/api/images/${imageId}/download`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          credentials: 'include'
-        });
+        const success = await downloadImage(imageId, image.originalName || image.filename);
 
-        if (!response.ok) {
+        if (success) {
+          successCount++;
+        } else {
           failCount++;
-          continue;
         }
-
-        const data = await response.json();
-        const filename = data.filename || image.originalName || image.filename;
-
-        // Fetch the actual image as blob
-        const imageResponse = await fetch(data.url, {
-          mode: 'cors',
-          credentials: 'include'
-        });
-
-        if (!imageResponse.ok) {
-          failCount++;
-          continue;
-        }
-
-        const blob = await imageResponse.blob();
-
-        // Create blob URL and trigger download
-        const blobUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = filename;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Cleanup blob URL
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-
-        successCount++;
 
         // Add delay between downloads to prevent browser blocking
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -381,7 +283,7 @@ const Gallery = () => {
     alert(`Downloaded ${successCount} image(s).${failCount > 0 ? ` ${failCount} failed.` : ''}`);
     setSelectionMode(false);
     setSelectedImages(new Set());
-  }, [selectedImages, images, apiUrl, token]);
+  }, [selectedImages, images, downloadImage]);
 
   const handleBulkDelete = useCallback(async () => {
     if (selectedImages.size === 0) return;
