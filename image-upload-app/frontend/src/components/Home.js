@@ -6,7 +6,7 @@ import './Home.css';
 const Home = () => (
   <div className="home">
     <div className="welcome-card soft-card">
-      <h1 className="gradient-text">Welcome to Image Upload App</h1>
+      <h1 className="gradient-text">Welcome to opticoles pics</h1>
       <p>Upload and manage your images with ease</p>
 
       <div className="features">

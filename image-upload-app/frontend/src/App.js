@@ -43,7 +43,7 @@ function AppContent() {
         <div className="pt-8 px-8 flex flex-col gap-6">
           <div>
             <h2 className="text-2xl font-light bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent mb-2">
-              Image Upload App
+              opticoles pics
             </h2>
             {isAuthenticated && (
               <p className="text-sm text-slate-500 font-light">
@@ -141,7 +141,7 @@ function AppContent() {
         <div className="pt-8 px-8 flex flex-col gap-6">
           <div>
             <h2 className="text-2xl font-light bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent mb-2">
-              Image Upload App
+              opticoles pics
             </h2>
             {isAuthenticated && (
               <p className="text-sm text-slate-500 font-light">
