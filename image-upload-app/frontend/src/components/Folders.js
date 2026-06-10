@@ -209,7 +209,7 @@ const Folders = () => {
                   <div className={`preview-grid preview-count-${Math.min(folder.previewImages.length, 3)}`}>
                     {folder.previewImages.slice(0, 3).map((img, idx) => (
                       <div key={idx} className="preview-image-container">
-                        <img src={img.url} alt="" className="preview-image" />
+                        <img src={img.url} alt="" className="preview-image" loading="lazy" decoding="async" />
                       </div>
                     ))}
                   </div>

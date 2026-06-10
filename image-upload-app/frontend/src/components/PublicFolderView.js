@@ -246,6 +246,7 @@ const PublicFolderView = () => {
                   src={image.url}
                   alt={image.originalName || image.filename}
                   loading="lazy"
+                  decoding="async"
                 />
                 <div className="image-overlay">
                   <span>View</span>
@@ -280,7 +281,7 @@ const PublicFolderView = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <img src={selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} onClick={(e) => e.stopPropagation()} />
+            <img src={selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} decoding="async" onClick={(e) => e.stopPropagation()} />
             <div className="lightbox-info" onClick={(e) => e.stopPropagation()}>
               <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
               <p><strong>Uploaded by:</strong> {selectedImage.uploadedBy?.username || 'Unknown'}</p>

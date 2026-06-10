@@ -125,6 +125,7 @@ const PublicGallery = () => {
                           src={image.thumbnailUrl || image.url}
                           alt={image.filename}
                           loading="lazy"
+                          decoding="async"
                         />
                         <div className="image-overlay">
                           <span>View</span>
@@ -157,7 +158,7 @@ const PublicGallery = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <img src={selectedImage.url} alt={selectedImage.filename} onClick={(e) => e.stopPropagation()} />
+            <img src={selectedImage.url} alt={selectedImage.filename} decoding="async" onClick={(e) => e.stopPropagation()} />
             <div className="lightbox-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 className="btn btn-primary"
