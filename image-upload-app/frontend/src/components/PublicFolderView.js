@@ -243,7 +243,7 @@ const PublicFolderView = () => {
             <div key={image._id} className="public-gallery-item">
               <div className="image-container" onClick={() => openLightbox(image)}>
                 <img
-                  src={image.url}
+                  src={image.thumbnailUrl || image.url}
                   alt={image.originalName || image.filename}
                   loading="lazy"
                   decoding="async"
