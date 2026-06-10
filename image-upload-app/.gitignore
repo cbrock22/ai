@@ -76,25 +76,5 @@ coverage/
 !**/*.example
 !**/*.example.md
 
-# Documentation files with REAL CREDENTIALS - NEVER COMMIT THESE!
-docs/ADMIN_CREDENTIALS.md
-docs/YOUR_S3_CONFIG.md
-docs/GITHUB_SECRETS_SETUP.md
-
-# Other documentation files (may contain sensitive examples)
-ADMIN_CREDENTIALS.md
-ADMIN_VIEW_TOGGLE.md
-AUTHENTICATION_SETUP.md
-DEPLOY_LIGHTSAIL_DOCKER.md
-DEPLOY_QUICK.md
-DOCKER_QUICK_START.md
-DOCKER_SETUP.md
-FAVICON_INFO.md
-GITHUB_SECRETS_SETUP.md
-LOGIN_FIX.md
-PRODUCTION_READY_CHECKLIST.md
-S3_QUICK_REFERENCE.md
-S3_SETUP.md
-SECURITY_CHECKLIST.md
-WINDOWS_SETUP.md
-YOUR_S3_CONFIG.md
+# Local documentation (not tracked)
+docs/

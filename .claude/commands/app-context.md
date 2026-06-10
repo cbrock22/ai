@@ -1,0 +1,1 @@
+Read image-upload-app/CLAUDE.md and give a one-paragraph summary of the project, then list the 5 most likely files that would need to change for the task described in $ARGUMENTS. If no task is given, just summarize the project and offer to help locate relevant files for any specific change.
