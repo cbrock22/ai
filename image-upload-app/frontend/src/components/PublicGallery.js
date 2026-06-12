@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useImageDownload } from '../hooks/useImageDownload';
+import { buildPictureSources } from '../utils/imageSources';
 import '../common.css';
 import './PublicGallery.css';
 
@@ -158,7 +159,22 @@ const PublicGallery = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <img src={selectedImage.url} alt={selectedImage.filename} decoding="async" onClick={(e) => e.stopPropagation()} />
+            {(() => {
+              const picture = buildPictureSources(selectedImage);
+              const fallback = (picture && picture.fallbackSrc) || selectedImage.url;
+              const imgEl = (
+                <img src={fallback} alt={selectedImage.filename} decoding="async" onClick={(e) => e.stopPropagation()} />
+              );
+              if (!picture) return imgEl;
+              return (
+                <picture>
+                  {picture.sources.map((s) => (
+                    <source key={s.type} type={s.type} srcSet={s.srcSet} sizes={s.sizes} />
+                  ))}
+                  {imgEl}
+                </picture>
+              );
+            })()}
             <div className="lightbox-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 className="btn btn-primary"

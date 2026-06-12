@@ -2,11 +2,13 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { generateToken, authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
 // Signup route
 router.post('/signup',
+  authLimiter,
   [
     body('username').trim().isLength({ min: 3, max: 30 }).withMessage('Username must be 3-30 characters'),
     body('email').isEmail().withMessage('Invalid email'),
@@ -62,6 +64,7 @@ router.post('/signup',
 
 // Login route
 router.post('/login',
+  authLimiter,
   [
     body('email').isEmail().withMessage('Invalid email'),
     body('password').notEmpty().withMessage('Password required')
@@ -123,6 +126,7 @@ router.get('/me', authenticateToken, (req, res) => {
 
 // Change password
 router.post('/change-password',
+  authLimiter,
   authenticateToken,
   [
     body('currentPassword').notEmpty().withMessage('Current password required'),

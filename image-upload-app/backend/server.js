@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
+const { apiLimiter } = require('./middleware/rateLimit');
 const multer = require('multer');
 const sharp = require('sharp');
 const { join } = require('path');
@@ -104,6 +106,20 @@ const S3_BUCKET = process.env.S3_BUCKET_NAME;
 // Initialize uploads directory (for local storage)
 if (!USE_S3 && !existsSync(uploadsDir)) mkdirSync(uploadsDir, { recursive: true});
 
+// Behind nginx (prod) / localtunnel — trust the first proxy hop so rate limiting
+// and secure cookies see the real client IP/protocol.
+app.set('trust proxy', 1);
+
+// Security headers. CSP is disabled because the SPA loads images cross-origin
+// (S3 in prod, the API host in dev) and uses inline styles; a strict default CSP
+// would break those. CORP is set to cross-origin so the frontend origin can load
+// images/static served by this backend in dev. The other ~13 Helmet headers
+// (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, etc.) stay on.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+
 // Middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5000',
@@ -111,6 +127,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
+
+// General API rate limit (auth endpoints get a stricter limit of their own).
+app.use('/api', apiLimiter);
 
 // Serve images with caching headers for better performance (local storage only)
 if (!USE_S3) {

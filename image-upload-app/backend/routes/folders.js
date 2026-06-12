@@ -101,7 +101,7 @@ router.get('/public-gallery', async (req, res) => {
 
         // Get first 10 images for preview
         const previewImages = await Image.find({ folder: folder._id })
-          .select('url filename thumbnailUrl')
+          .select('url filename thumbnailUrl renditions originalUrl')
           .limit(10)
           .sort({ uploadDate: -1 });
 

@@ -3,6 +3,7 @@ import { useInView } from 'react-intersection-observer';
 import { useAuth } from '../context/AuthContext';
 import { useImageDownload } from '../hooks/useImageDownload';
 import LazyImage from './LazyImage';
+import { buildPictureSources } from '../utils/imageSources';
 import '../common.css';
 import './Gallery.css';
 
@@ -682,7 +683,28 @@ const Gallery = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
             </button>
-            <img src={selectedImage.originalUrl || selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} decoding="async" onClick={(e) => e.stopPropagation()} />
+            {(() => {
+              const picture = buildPictureSources(selectedImage);
+              const fallback = (picture && picture.fallbackSrc) || selectedImage.originalUrl || selectedImage.url;
+              const imgEl = (
+                <img
+                  src={fallback}
+                  alt={selectedImage.originalName || selectedImage.filename}
+                  decoding="async"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              );
+              // Legacy images (no renditions): plain <img> on the original.
+              if (!picture) return imgEl;
+              return (
+                <picture>
+                  {picture.sources.map((s) => (
+                    <source key={s.type} type={s.type} srcSet={s.srcSet} sizes={s.sizes} />
+                  ))}
+                  {imgEl}
+                </picture>
+              );
+            })()}
             <div className="lightbox-info" onClick={(e) => e.stopPropagation()}>
               <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
               <p><strong>Folder:</strong> {selectedImage.folder?.name || 'Unknown'}</p>

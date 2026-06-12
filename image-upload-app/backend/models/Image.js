@@ -37,6 +37,17 @@ const imageSchema = new mongoose.Schema({
     required: false  // Optional - defaults to originalSize for raw images
   },
 
+  // DISPLAY RENDITIONS: responsive AVIF/WebP/JPEG ladder for the lightbox view.
+  // Frontend builds a <picture> + srcset from these; empty for legacy images
+  // (which fall back to originalUrl/displayUrl).
+  renditions: [{
+    url: { type: String, required: true },
+    format: { type: String, enum: ['avif', 'webp', 'jpeg'], required: true },
+    width: { type: Number },
+    height: { type: Number },
+    size: { type: Number }
+  }],
+
   // THUMBNAIL: WebP (300x300 max) - for gallery grid
   thumbnailUrl: {
     type: String

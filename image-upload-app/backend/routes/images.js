@@ -6,8 +6,13 @@ const { existsSync, unlinkSync } = require('fs');
 const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const Image = require('../models/Image');
+const { generateRenditions } = require('../services/renditions');
 const { authenticateToken, optionalAuthentication } = require('../middleware/auth');
 const { checkFolderAccess } = require('../middleware/folderPermission');
+
+// Toggle for the responsive display ladder (AVIF/WebP/JPEG). On by default;
+// set DISPLAY_RENDITIONS=false to skip the extra encode work if needed.
+const GENERATE_RENDITIONS = process.env.DISPLAY_RENDITIONS !== 'false';
 
 const router = express.Router();
 
@@ -221,17 +226,24 @@ router.post('/',
         const thumbnailBuffer = await thumbnailSharp.toBuffer();
         const thumbnailMetadata = await sharp(thumbnailBuffer).metadata();
 
-        console.log(`[ImageUpload] Completed processing: ${req.file.originalname}`);
+        // Responsive display ladder (AVIF/WebP/JPEG) for the lightbox view.
+        // Generated in the same queued task to bound concurrent CPU use.
+        const renditions = GENERATE_RENDITIONS
+          ? await generateRenditions(req.file.buffer)
+          : [];
+
+        console.log(`[ImageUpload] Completed processing: ${req.file.originalname} (${renditions.length} renditions)`);
         return {
           originalFilename,
           thumbnailBuffer,
           thumbnailWidth: thumbnailMetadata.width,
           thumbnailHeight: thumbnailMetadata.height,
+          renditions,
           metadata
         };
       });
 
-      const { originalFilename, thumbnailBuffer, thumbnailWidth, thumbnailHeight, metadata } = result;
+      const { originalFilename, thumbnailBuffer, thumbnailWidth, thumbnailHeight, renditions, metadata } = result;
       console.log(`[ImageUpload] Uploading to storage: ${req.file.originalname}`);
 
       const thumbnailFilename = generateFilename('webp');
@@ -281,6 +293,35 @@ router.post('/',
         thumbnailUrl = `${protocol}://${host}/uploads/${thumbnailFilename}`;
       }
 
+      // Upload the display renditions (AVIF/WebP/JPEG ladder) in parallel and
+      // collect their records for the DB. Long, immutable cache: filenames are
+      // content-unique so they can be cached aggressively.
+      const region = process.env.AWS_REGION || 'us-east-1';
+      const renditionRecords = await Promise.all(renditions.map(async (r) => {
+        const rFilename = generateFilename(r.ext);
+        let rUrl;
+        if (USE_S3) {
+          await new Upload({
+            client: s3Client,
+            params: {
+              Bucket: S3_BUCKET,
+              Key: rFilename,
+              Body: r.buffer,
+              ContentType: r.contentType,
+              CacheControl: 'max-age=2592000, immutable' // 30 days
+            }
+          }).done();
+          rUrl = `https://${S3_BUCKET}.s3.${region}.amazonaws.com/${rFilename}`;
+        } else {
+          const fs = require('fs').promises;
+          await fs.writeFile(join(uploadsDir, rFilename), r.buffer);
+          const protocol = req.protocol || 'http';
+          const host = req.get('host') || `localhost:${process.env.PORT || 3001}`;
+          rUrl = `${protocol}://${host}/uploads/${rFilename}`;
+        }
+        return { url: rUrl, format: r.format, width: r.width, height: r.height, size: r.size };
+      }));
+
       // Save to database
       const image = new Image({
         filename: originalFilename,
@@ -297,6 +338,7 @@ router.post('/',
         thumbnailSize: thumbnailBuffer.length,
         thumbnailWidth,
         thumbnailHeight,
+        renditions: renditionRecords,
         folder: req.folder._id,
         uploadedBy: req.user._id,
         processingStatus: 'completed' // Thumbnail generated synchronously
@@ -652,6 +694,17 @@ router.delete('/:imageId', async (req, res) => {
         );
       }
 
+      // Delete display renditions (AVIF/WebP/JPEG ladder)
+      for (const r of image.renditions || []) {
+        if (!r.url) continue;
+        deletePromises.push(
+          s3Client.send(new DeleteObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: r.url.split('/').pop()
+          }))
+        );
+      }
+
       // Delete legacy originalFilename if it exists
       if (image.originalFilename) {
         deletePromises.push(
@@ -687,6 +740,15 @@ router.delete('/:imageId', async (req, res) => {
         const thumbnailPath = join(uploadsDir, thumbnailFilename);
         if (existsSync(thumbnailPath)) {
           unlinkSync(thumbnailPath);
+        }
+      }
+
+      // Delete display renditions (AVIF/WebP/JPEG ladder)
+      for (const r of image.renditions || []) {
+        if (!r.url) continue;
+        const rPath = join(uploadsDir, r.url.split('/').pop());
+        if (existsSync(rPath)) {
+          unlinkSync(rPath);
         }
       }
 
