@@ -1,10 +1,18 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const Folder = require('../models/Folder');
 const Image = require('../models/Image');
 const { authenticateToken } = require('../middleware/auth');
 const { checkFolderAccess } = require('../middleware/folderPermission');
+const { validate } = require('../middleware/validate');
+const {
+  folderIdParams,
+  folderPermissionParams,
+  createFolderBody,
+  updateFolderBody,
+  addPermissionBody,
+  verifyFolderPasswordBody,
+} = require('../validation/schemas');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { existsSync, unlinkSync } = require('fs');
 const { join } = require('path');
@@ -24,7 +32,7 @@ const S3_BUCKET = process.env.S3_BUCKET_NAME;
 const uploadsDir = join(__dirname, '../uploads');
 
 // Check if public folder requires password
-router.get('/public/:folderId/check', async (req, res) => {
+router.get('/public/:folderId/check', validate({ params: folderIdParams }), async (req, res) => {
   try {
     const folder = await Folder.findById(req.params.folderId).select('+password');
 
@@ -48,7 +56,7 @@ router.get('/public/:folderId/check', async (req, res) => {
 });
 
 // Verify password for public folder
-router.post('/public/:folderId/verify', async (req, res) => {
+router.post('/public/:folderId/verify', validate({ params: folderIdParams, body: verifyFolderPasswordBody }), async (req, res) => {
   try {
     const { password } = req.body;
     const folder = await Folder.findById(req.params.folderId).select('+password');
@@ -130,7 +138,7 @@ router.get('/public-gallery', async (req, res) => {
 });
 
 // Public folder viewing route (no authentication required, but may need password)
-router.get('/public/:folderId', async (req, res) => {
+router.get('/public/:folderId', validate({ params: folderIdParams }), async (req, res) => {
   try {
     const folder = await Folder.findById(req.params.folderId)
       .populate('owner', 'username email');
@@ -243,15 +251,8 @@ router.get('/', async (req, res) => {
 
 // Create new folder
 router.post('/',
-  [
-    body('name').trim().notEmpty().withMessage('Folder name required')
-  ],
+  validate({ body: createFolderBody }),
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     try {
       const { name, isPublic, displayOnPublicGallery, password } = req.body;
 
@@ -298,7 +299,7 @@ router.post('/',
 );
 
 // Get folder by ID
-router.get('/:folderId', checkFolderAccess('read'), async (req, res) => {
+router.get('/:folderId', validate({ params: folderIdParams }), checkFolderAccess('read'), async (req, res) => {
   try {
     await req.folder.populate('owner', 'username email');
     await req.folder.populate('permissions.user', 'username email');
@@ -311,16 +312,9 @@ router.get('/:folderId', checkFolderAccess('read'), async (req, res) => {
 
 // Update folder
 router.put('/:folderId',
+  validate({ params: folderIdParams, body: updateFolderBody }),
   checkFolderAccess('admin'),
-  [
-    body('name').optional().trim().notEmpty().withMessage('Folder name cannot be empty')
-  ],
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     try {
       const { name, isPublic, displayOnPublicGallery, password, removePassword } = req.body;
 
@@ -354,7 +348,7 @@ router.put('/:folderId',
 );
 
 // Delete folder (cascade delete all images and S3 objects)
-router.delete('/:folderId', checkFolderAccess('admin'), async (req, res) => {
+router.delete('/:folderId', validate({ params: folderIdParams }), checkFolderAccess('admin'), async (req, res) => {
   try {
     // Get all images in this folder
     const images = await Image.find({ folder: req.folder._id });
@@ -438,17 +432,9 @@ router.delete('/:folderId', checkFolderAccess('admin'), async (req, res) => {
 
 // Add user permission to folder
 router.post('/:folderId/permissions',
+  validate({ params: folderIdParams, body: addPermissionBody }),
   checkFolderAccess('admin'),
-  [
-    body('userId').notEmpty().withMessage('User ID required'),
-    body('access').isIn(['read', 'write', 'admin']).withMessage('Invalid access level')
-  ],
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     try {
       const { userId, access } = req.body;
 
@@ -479,6 +465,7 @@ router.post('/:folderId/permissions',
 
 // Remove user permission from folder
 router.delete('/:folderId/permissions/:userId',
+  validate({ params: folderPermissionParams }),
   checkFolderAccess('admin'),
   async (req, res) => {
     try {
