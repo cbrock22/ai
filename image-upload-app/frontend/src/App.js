@@ -15,6 +15,9 @@ import PublicFolderView from './components/PublicFolderView';
 import Users from './components/Users';
 import './App.css';
 
+// Module-scope constant so it isn't flagged as a missing useEffect dependency.
+const DESKTOP_QUERY = '(min-width: 768px)';
+
 function ThemeToggleButton() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
@@ -42,9 +45,8 @@ function ThemeToggleButton() {
 function TopNav() {
   const { isAuthenticated, user, logout, isAdmin, viewMode, toggleViewMode, isAdminView } = useAuth();
 
-  const desktopQuery = '(min-width: 768px)';
   const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(desktopQuery).matches
+    () => typeof window !== 'undefined' && window.matchMedia(DESKTOP_QUERY).matches
   );
   const [navVisible, setNavVisible] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -52,7 +54,7 @@ function TopNav() {
 
   // Track viewport class (mobile vs desktop).
   useEffect(() => {
-    const mq = window.matchMedia(desktopQuery);
+    const mq = window.matchMedia(DESKTOP_QUERY);
     const onChange = (e) => setIsDesktop(e.matches);
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);

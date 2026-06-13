@@ -5,7 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.js\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.917.0",
@@ -25,7 +28,10 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "nodemon": "^3.0.1",
+    "prettier": "^3.3.3"
   },
   "overrides": {
     "axios": "^1.7.0"

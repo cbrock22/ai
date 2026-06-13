@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+# Lint + format only the staged files in each sub-project before a commit.
+# --cwd scopes lint-staged to that project (its config + its local eslint/prettier),
+# so a commit touching only one side doesn't run the other. A frontend lint error
+# (the kind that breaks CRA's CI build) now fails here, locally, instead of in CI.
+
+npx --no-install lint-staged --cwd image-upload-app/frontend || exit 1
+npx --no-install lint-staged --cwd image-upload-app/backend || exit 1

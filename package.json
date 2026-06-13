@@ -1,5 +1,16 @@
 {
+  "name": "image-app-workspace",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm --prefix image-upload-app/frontend run lint && npm --prefix image-upload-app/backend run lint",
+    "format": "npm --prefix image-upload-app/frontend run format && npm --prefix image-upload-app/backend run format"
+  },
   "dependencies": {
     "ngrok": "^5.0.0-beta.2"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10"
   }
 }
