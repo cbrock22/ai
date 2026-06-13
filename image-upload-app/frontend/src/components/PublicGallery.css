@@ -17,7 +17,7 @@
 
 .gallery-subtitle {
   font-size: 1.1rem;
-  color: #6f665b;
+  color: var(--text-muted);
   font-weight: 300;
 }
 
@@ -47,7 +47,7 @@
 .folder-title {
   font-size: 1.8rem;
   font-weight: 600;
-  background: linear-gradient(135deg, #c2603a 0%, #c2603a 50%, #c2603a 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent) 50%, var(--accent) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -56,7 +56,7 @@
 
 .folder-meta {
   font-size: 0.95rem;
-  color: #6f665b;
+  color: var(--text-muted);
   margin: 0;
 }
 
@@ -134,7 +134,7 @@
 .empty-folder-preview {
   text-align: center;
   padding: 3rem;
-  color: #8a8175;
+  color: var(--text-subtle);
   font-style: italic;
 }
 
@@ -195,7 +195,7 @@
 }
 
 .close-btn-desktop:hover {
-  background: #faf6ef;
+  background: var(--surface-2);
   transform: translateX(-50%) scale(1.05);
 }
 

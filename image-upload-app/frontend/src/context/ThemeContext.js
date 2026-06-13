@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 
 /**
- * Theme state for the Warm Stone design system.
+ * Theme state for the Graphite Mono design system.
  *
  * - Persists the user's explicit choice in localStorage ('theme' = 'light'|'dark').
  * - If the user has never chosen, we leave <html> without a data-theme attribute

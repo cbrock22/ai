@@ -16,7 +16,7 @@
 }
 
 .users-subtitle {
-  color: #6f665b;
+  color: var(--text-muted);
   font-size: 1rem;
   font-weight: 300;
 }
@@ -31,7 +31,7 @@
 .stat-card {
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.4) 0%,
-    rgba(250, 246, 239, 0.3) 100%);
+    rgba(250, 250, 249, 0.3) 100%);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-radius: 24px;
@@ -43,13 +43,13 @@
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(194, 96, 58, 0.15);
+  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.15);
 }
 
 .stat-number {
   font-size: 3rem;
   font-weight: 200;
-  background: linear-gradient(135deg, #c2603a 0%, #c2603a 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -57,7 +57,7 @@
 }
 
 .stat-label {
-  color: #6f665b;
+  color: var(--text-muted);
   font-size: 0.875rem;
   font-weight: 400;
   text-transform: uppercase;
@@ -67,7 +67,7 @@
 .users-table-container {
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.4) 0%,
-    rgba(250, 246, 239, 0.3) 100%);
+    rgba(250, 250, 249, 0.3) 100%);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-radius: 24px;
@@ -82,35 +82,35 @@
 }
 
 .users-table thead {
-  border-bottom: 2px solid rgba(194, 96, 58, 0.2);
+  border-bottom: 2px solid rgba(var(--accent-rgb), 0.2);
 }
 
 .users-table th {
   padding: 1rem;
   text-align: left;
   font-weight: 500;
-  color: #6f665b;
+  color: var(--text-muted);
   font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .users-table tbody tr {
-  border-bottom: 1px solid rgba(138, 129, 117, 0.1);
+  border-bottom: 1px solid rgba(140, 140, 136, 0.1);
   transition: all 0.2s ease;
 }
 
 .users-table tbody tr:hover {
-  background: rgba(194, 96, 58, 0.05);
+  background: rgba(var(--accent-rgb), 0.05);
 }
 
 .users-table tbody tr.current-user {
-  background: rgba(194, 96, 58, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
 }
 
 .users-table td {
   padding: 1rem;
-  color: #2a2724;
+  color: var(--text);
 }
 
 .user-username {
@@ -123,7 +123,7 @@
 .badge-you {
   display: inline-block;
   padding: 0.25rem 0.75rem;
-  background: linear-gradient(135deg, #c2603a 0%, #c2603a 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%);
   color: white;
   border-radius: 12px;
   font-size: 0.75rem;
@@ -133,7 +133,7 @@
 }
 
 .user-email {
-  color: #6f665b;
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -146,17 +146,17 @@
 }
 
 .role-badge.admin {
-  background: linear-gradient(135deg, rgba(194, 96, 58, 0.15), rgba(194, 96, 58, 0.15));
-  color: #c2603a;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.15), rgba(var(--accent-rgb), 0.15));
+  color: var(--accent);
 }
 
 .role-badge.user {
-  background: rgba(111, 102, 91, 0.1);
-  color: #6f665b;
+  background: rgba(107, 107, 104, 0.1);
+  color: var(--text-muted);
 }
 
 .user-date {
-  color: #6f665b;
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -169,22 +169,22 @@
 .role-select {
   padding: 0.5rem 1rem;
   border-radius: 12px;
-  border: 1px solid rgba(138, 129, 117, 0.2);
+  border: 1px solid rgba(140, 140, 136, 0.2);
   background: white;
-  color: #2a2724;
+  color: var(--text);
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .role-select:hover {
-  border-color: #c2603a;
+  border-color: var(--accent);
 }
 
 .role-select:focus {
   outline: none;
-  border-color: #c2603a;
-  box-shadow: 0 0 0 3px rgba(194, 96, 58, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
 }
 
 .btn-delete-user {
@@ -214,8 +214,8 @@
   width: 50px;
   height: 50px;
   margin: 0 auto 1rem;
-  border: 3px solid rgba(194, 96, 58, 0.1);
-  border-top-color: #c2603a;
+  border: 3px solid rgba(var(--accent-rgb), 0.1);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

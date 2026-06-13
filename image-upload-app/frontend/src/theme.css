@@ -1,141 +1,156 @@
 /* ===========================================================================
-   Warm Stone — design tokens (single source of truth for color/theme)
+   Graphite Mono — design tokens (single source of truth for color/theme)
    ---------------------------------------------------------------------------
-   2026 "elevated neutrals" direction: warm sand surfaces, charcoal text, and a
-   single decisive terracotta accent. Replaces the old pink/purple/cyan
-   glassmorphism. Every component reads these variables so the whole app
-   reskins from one place and supports light + dark mode.
+   Near-monochrome, minimalist direction: neutral grey surfaces, ink text, and a
+   single graphite (light) / near-white (dark) accent. No colored hue, so the
+   photos are the only color on screen. Replaces the earlier terracotta theme.
 
-   Theme is selected by `data-theme` on <html> (set by ThemeContext):
-     <html data-theme="light"> / <html data-theme="dark">
-   When no attribute is present we fall back to the OS preference.
+   `--accent-rgb` mirrors `--accent` as an "r, g, b" triple so component CSS can
+   build theme-aware translucent tints with `rgba(var(--accent-rgb), 0.1)`.
+
+   Theme is selected by `data-theme` on <html> (set by ThemeContext); with no
+   attribute we fall back to the OS preference.
    =========================================================================== */
 
 :root {
-  /* Surfaces — warm sand page, near-white cards */
-  --bg:            #F5F1EA;   /* app background (warm sand)           */
-  --surface:       #FFFFFF;   /* cards, panels                        */
-  --surface-2:     #FAF6EF;   /* secondary surface / hover            */
-  --surface-sunken:#EFE9DF;   /* wells, thumbnails, inputs            */
-  --overlay:       rgba(42, 39, 36, 0.55); /* lightbox / modal scrim  */
+  /* Surfaces — light neutral greys, white cards */
+  --bg:            #F5F5F4;
+  --surface:       #FFFFFF;
+  --surface-2:     #FAFAF9;
+  --surface-sunken: #ECECEA;
+  --overlay:       rgba(20, 20, 18, 0.55);
 
   /* Borders */
-  --border:        #E7E0D5;
-  --border-strong: #D8CFC0;
+  --border:        #E5E5E3;
+  --border-strong: #D6D6D3;
 
-  /* Text — warm charcoal, never pure black */
-  --text:          #2A2724;
-  --text-muted:    #6F665B;
-  --text-subtle:   #8A8175;
+  /* Text — ink, never pure black */
+  --text:          #1C1C1A;
+  --text-muted:    #6B6B68;
+  --text-subtle:   #8C8C88;
   --text-on-accent:#FFFFFF;
 
-  /* Accent — terracotta */
-  --accent:        #C2603A;
-  --accent-hover:  #A84F2E;
-  --accent-active: #8F4324;
-  --accent-soft:   #F3E0D6;   /* tinted background for soft buttons/badges */
-  --accent-text:   #8F4324;   /* accent-colored text that stays readable   */
+  /* Accent — graphite ink (monochrome) */
+  --accent:        #1F1F1D;
+  --accent-rgb:    31, 31, 29;
+  --accent-hover:  #000000;
+  --accent-active: #000000;
+  --accent-soft:   #ECECEA;
+  --accent-text:   #1C1C1A;
 
-  /* Semantic (kept warm so they sit in the palette) */
-  --success:       #5E7A3B;
-  --success-soft:  #E9EEDD;
-  --success-text:  #3F5526;
-  --danger:        #C0432E;
-  --danger-soft:   #F6E0DA;
-  --danger-text:   #8F2E1F;
-  --warning:       #C58A2E;
-  --warning-soft:  #F6E8D2;
-  --warning-text:  #8A5E16;
-  --favorite:      #D69A33;   /* star / favorite gold */
+  /* Favourite star — one small restrained gold affordance */
+  --favorite:      #B8902E;
 
-  /* Shadows — neutral warm, soft (flat-leaning) */
-  --shadow-sm: 0 1px 2px rgba(60, 50, 40, 0.06);
-  --shadow-md: 0 4px 14px rgba(60, 50, 40, 0.08);
-  --shadow-lg: 0 10px 30px rgba(60, 50, 40, 0.12);
-  --ring:      0 0 0 3px rgba(194, 96, 58, 0.30);
+  /* Semantic (kept muted/neutral so they don't shout in a mono palette) */
+  --success:       #4B7B52;
+  --success-soft:  #ECF1EC;
+  --success-text:  #2E5235;
+  --danger:        #B23B30;
+  --danger-soft:   #F6E7E5;
+  --danger-text:   #842117;
+  --warning:       #B8860B;
+  --warning-soft:  #F4ECDB;
+  --warning-text:  #6E5208;
 
-  /* Radii — modern but restrained (was 24–32px) */
+  /* Shadows — neutral, soft (flat-leaning) */
+  --shadow-sm: 0 1px 2px rgba(20, 20, 18, 0.06);
+  --shadow-md: 0 4px 14px rgba(20, 20, 18, 0.08);
+  --shadow-lg: 0 10px 30px rgba(20, 20, 18, 0.12);
+  --ring:      0 0 0 3px rgba(31, 31, 29, 0.22);
+
+  /* Radii — modern but restrained */
   --radius-sm: 8px;
   --radius:    12px;
   --radius-lg: 16px;
   --radius-pill: 999px;
 
+  /* Typography — minimalist letter-spacing scale */
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --tracking-tight: 0.01em;
+  --tracking:       0.02em;
+  --tracking-wide:  0.06em;
+  --tracking-brand: 0.12em;
+
   color-scheme: light;
 }
 
-/* Explicit dark selection + OS-preference fallback share one token block. */
+/* Explicit dark + OS fallback share one token block (see media query below). */
 :root[data-theme="dark"] {
-  --bg:            #1A1714;
-  --surface:       #221E1A;
-  --surface-2:     #2A2521;
-  --surface-sunken:#15120F;
+  --bg:            #131312;
+  --surface:       #1C1C1B;
+  --surface-2:     #232321;
+  --surface-sunken:#0F0F0E;
   --overlay:       rgba(0, 0, 0, 0.62);
 
-  --border:        #36302A;
-  --border-strong: #4A4239;
+  --border:        #2C2C2A;
+  --border-strong: #3C3C39;
 
-  --text:          #ECE6DD;
-  --text-muted:    #ADA398;
-  --text-subtle:   #8A8175;
-  --text-on-accent:#1A1714;
+  --text:          #ECECEA;
+  --text-muted:    #A6A6A1;
+  --text-subtle:   #80807B;
+  --text-on-accent:#131312;
 
-  --accent:        #E07A4F;   /* lighter terracotta reads better on dark */
-  --accent-hover:  #EC8B61;
-  --accent-active: #F09E79;
-  --accent-soft:   #3A2A22;
-  --accent-text:   #EFB596;
+  /* In dark mode the accent inverts to near-white (light buttons, dark text). */
+  --accent:        #ECECEA;
+  --accent-rgb:    236, 236, 234;
+  --accent-hover:  #FFFFFF;
+  --accent-active: #FFFFFF;
+  --accent-soft:   #2A2A28;
+  --accent-text:   #ECECEA;
 
-  --success:       #8FB05F;
-  --success-soft:  #2A2E1F;
-  --success-text:  #B7CE8C;
-  --danger:        #E0705B;
-  --danger-soft:   #3A211B;
-  --danger-text:   #F0A593;
-  --warning:       #DAA94F;
-  --warning-soft:  #352B18;
-  --warning-text:  #E6C485;
-  --favorite:      #E3B452;
+  --favorite:      #D9B355;
+
+  --success:       #84B58F;
+  --success-soft:  #1E261F;
+  --success-text:  #B7D0BC;
+  --danger:        #E08074;
+  --danger-soft:   #2E1B19;
+  --danger-text:   #F0A69D;
+  --warning:       #D9B25A;
+  --warning-soft:  #2A2310;
+  --warning-text:  #E6CD8C;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
   --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.38);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.48);
-  --ring:      0 0 0 3px rgba(224, 122, 79, 0.35);
+  --ring:      0 0 0 3px rgba(236, 236, 234, 0.25);
 
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
-    --bg:            #1A1714;
-    --surface:       #221E1A;
-    --surface-2:     #2A2521;
-    --surface-sunken:#15120F;
+    --bg:            #131312;
+    --surface:       #1C1C1B;
+    --surface-2:     #232321;
+    --surface-sunken:#0F0F0E;
     --overlay:       rgba(0, 0, 0, 0.62);
-    --border:        #36302A;
-    --border-strong: #4A4239;
-    --text:          #ECE6DD;
-    --text-muted:    #ADA398;
-    --text-subtle:   #8A8175;
-    --text-on-accent:#1A1714;
-    --accent:        #E07A4F;
-    --accent-hover:  #EC8B61;
-    --accent-active: #F09E79;
-    --accent-soft:   #3A2A22;
-    --accent-text:   #EFB596;
-    --success:       #8FB05F;
-    --success-soft:  #2A2E1F;
-    --success-text:  #B7CE8C;
-    --danger:        #E0705B;
-    --danger-soft:   #3A211B;
-    --danger-text:   #F0A593;
-    --warning:       #DAA94F;
-    --warning-soft:  #352B18;
-    --warning-text:  #E6C485;
-    --favorite:      #E3B452;
+    --border:        #2C2C2A;
+    --border-strong: #3C3C39;
+    --text:          #ECECEA;
+    --text-muted:    #A6A6A1;
+    --text-subtle:   #80807B;
+    --text-on-accent:#131312;
+    --accent:        #ECECEA;
+    --accent-rgb:    236, 236, 234;
+    --accent-hover:  #FFFFFF;
+    --accent-active: #FFFFFF;
+    --accent-soft:   #2A2A28;
+    --accent-text:   #ECECEA;
+    --favorite:      #D9B355;
+    --success:       #84B58F;
+    --success-soft:  #1E261F;
+    --success-text:  #B7D0BC;
+    --danger:        #E08074;
+    --danger-soft:   #2E1B19;
+    --danger-text:   #F0A69D;
+    --warning:       #D9B25A;
+    --warning-soft:  #2A2310;
+    --warning-text:  #E6CD8C;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
     --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.38);
     --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.48);
-    --ring:      0 0 0 3px rgba(224, 122, 79, 0.35);
+    --ring:      0 0 0 3px rgba(236, 236, 234, 0.25);
     color-scheme: dark;
   }
 }
