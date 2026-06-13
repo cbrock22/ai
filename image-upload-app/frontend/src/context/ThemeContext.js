@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 
 /**
  * Theme state for the Warm Stone design system.
@@ -64,6 +64,9 @@ export const ThemeProvider = ({ children }) => {
     apply(resolved === 'dark' ? 'light' : 'dark');
   }, [apply, resolved]);
 
-  const value = { theme: resolved, choice, toggleTheme, setTheme: apply };
+  const value = useMemo(
+    () => ({ theme: resolved, choice, toggleTheme, setTheme: apply }),
+    [resolved, choice, toggleTheme, apply]
+  );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };

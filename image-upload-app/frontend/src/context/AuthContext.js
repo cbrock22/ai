@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 
 const AuthContext = createContext();
 
@@ -14,6 +14,13 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('admin'); // 'admin' or 'user'
+  // Track the token in state so the context value has a STABLE reference between
+  // renders. (Previously `token: localStorage.getItem(...)` ran every render and,
+  // together with an unmemoized value object, forced every useAuth() consumer —
+  // i.e. the whole app — to re-render on any provider render.)
+  const [token, setToken] = useState(() => {
+    try { return localStorage.getItem('token'); } catch { return null; }
+  });
   const API_URL = process.env.REACT_APP_API_URL || '';
 
   const checkAuth = useCallback(async () => {
@@ -49,7 +56,7 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, [checkAuth]);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const response = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
@@ -66,11 +73,12 @@ export const AuthProvider = ({ children }) => {
     }
 
     localStorage.setItem('token', data.token);
+    setToken(data.token);
     setUser(data.user);
     return data;
-  };
+  }, [API_URL]);
 
-  const signup = async (username, email, password) => {
+  const signup = useCallback(async (username, email, password) => {
     const response = await fetch(`${API_URL}/api/auth/signup`, {
       method: 'POST',
       headers: {
@@ -87,11 +95,12 @@ export const AuthProvider = ({ children }) => {
     }
 
     localStorage.setItem('token', data.token);
+    setToken(data.token);
     setUser(data.user);
     return data;
-  };
+  }, [API_URL]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await fetch(`${API_URL}/api/auth/logout`, {
         method: 'POST',
@@ -101,18 +110,20 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       localStorage.removeItem('token');
+      setToken(null);
       setUser(null);
       setViewMode('admin'); // Reset to admin view on logout
     }
-  };
+  }, [API_URL]);
 
-  const toggleViewMode = () => {
+  const toggleViewMode = useCallback(() => {
     setViewMode(prev => prev === 'admin' ? 'user' : 'admin');
-  };
+  }, []);
 
-  const getToken = () => localStorage.getItem('token');
-
-  const value = {
+  // Single memoized context value. Identity only changes when one of the real
+  // inputs changes, so consumers that don't depend on the changed field can be
+  // skipped by React.memo downstream. Methods are stable (useCallback) above.
+  const value = useMemo(() => ({
     user,
     loading,
     login,
@@ -123,9 +134,9 @@ export const AuthProvider = ({ children }) => {
     viewMode,
     toggleViewMode,
     isAdminView: user?.role === 'admin' && viewMode === 'admin',
-    token: getToken(),
+    token,
     apiUrl: API_URL
-  };
+  }), [user, loading, viewMode, token, login, signup, logout, toggleViewMode, API_URL]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

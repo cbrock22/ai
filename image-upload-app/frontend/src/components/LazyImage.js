@@ -1,7 +1,12 @@
 import React from 'react';
 import { useInView } from 'react-intersection-observer';
 
-// Lazy-loading image component with optimizations
+/**
+ * Lazy-loading thumbnail. Memoized: in a grid of N images this only re-renders
+ * the cards whose props actually change (e.g. one favourite toggle), instead of
+ * all N every time the parent re-renders. For that to hold, callers must pass a
+ * STABLE `onClick` (see the memoized card wrappers in Gallery/FolderDetail).
+ */
 const LazyImage = ({ image, alt, onClick, selectionMode, isSelected }) => {
   const { ref, inView } = useInView({
     triggerOnce: true,
@@ -28,7 +33,7 @@ const LazyImage = ({ image, alt, onClick, selectionMode, isSelected }) => {
           height={imgHeight}
         />
       ) : (
-        <div className="image-placeholder" style={{ background: 'linear-gradient(135deg, rgba(249, 240, 255, 0.5) 0%, rgba(243, 229, 245, 0.5) 100%)', aspectRatio: '1' }}></div>
+        <div className="image-placeholder" />
       )}
       <div className="image-overlay">
         <span>{selectionMode ? (isSelected ? 'Selected' : 'Select') : 'View'}</span>
@@ -37,4 +42,4 @@ const LazyImage = ({ image, alt, onClick, selectionMode, isSelected }) => {
   );
 };
 
-export default LazyImage;
+export default React.memo(LazyImage);

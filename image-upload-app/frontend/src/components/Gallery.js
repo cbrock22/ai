@@ -8,6 +8,83 @@ import { buildPictureSources } from '../utils/imageSources';
 import '../common.css';
 import './Gallery.css';
 
+const FAVORITE_PATH = 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z';
+const DOWNLOAD_PATH = 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4';
+const DELETE_PATH = 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16';
+
+/**
+ * Shared gallery tile (search results, grouped-by-folder, and single-folder
+ * grids all render this). Module-scoped + React.memo so only the tiles whose
+ * props actually change re-render — not the whole grid on every parent state
+ * change. Parent passes stable (useCallback) handlers; `showFolder` toggles the
+ * folder label (hidden in the grouped view where the section header already
+ * names the folder).
+ */
+const GalleryCard = React.memo(function GalleryCard({
+  image, isAdminView, selectionMode, isSelected, canDelete, showFolder = true,
+  onOpen, onToggleSelect, onToggleFavorite, onDownload, onDelete
+}) {
+  const name = image.originalName || image.filename;
+  return (
+    <div className={`gallery-item ${selectionMode && isSelected ? 'selected' : ''}`}>
+      {selectionMode && (
+        <div className="image-checkbox">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(image._id)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+      <LazyImage
+        image={image}
+        alt={name}
+        onClick={() => (selectionMode ? onToggleSelect(image._id) : onOpen(image))}
+        selectionMode={selectionMode}
+        isSelected={isSelected}
+      />
+      {isAdminView && (
+        <div className="image-info">
+          {showFolder && <p className="image-folder">{image.folder?.name || 'Unknown Folder'}</p>}
+          <p className="image-uploader">By: {image.uploadedBy?.username || 'Unknown'}</p>
+        </div>
+      )}
+      <div className="image-actions">
+        <button
+          className={`btn-favorite ${image.isFavorited ? 'favorited' : ''}`}
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(image._id, image.isFavorited); }}
+          title={image.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <svg fill={image.isFavorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={FAVORITE_PATH} />
+          </svg>
+        </button>
+        <button
+          className="btn-download"
+          onClick={(e) => { e.stopPropagation(); onDownload(image._id, name); }}
+          title="Download original image"
+        >
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={DOWNLOAD_PATH} />
+          </svg>
+        </button>
+        {canDelete && (
+          <button
+            className="btn-delete"
+            onClick={(e) => { e.stopPropagation(); onDelete(image._id); }}
+            title="Delete image"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={DELETE_PATH} />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
+
 const Gallery = () => {
   const { token, apiUrl, user, isAdminView } = useAuth();
   const { downloadImage } = useImageDownload();
@@ -211,7 +288,9 @@ const Gallery = () => {
       if (response.ok) {
         setImages(prev => prev.filter(img => img._id !== imageId));
         setSearchResults(prev => (prev ? prev.filter(img => img._id !== imageId) : prev));
-        if (selectedImage?._id === imageId) setSelectedImage(null);
+        // Functional update => callback stays independent of selectedImage, so
+        // its identity is stable across lightbox open/close (grid cards don't churn).
+        setSelectedImage(prev => (prev?._id === imageId ? null : prev));
       } else {
         const data = await response.json();
         alert(data.error || 'Failed to delete image');
@@ -219,7 +298,7 @@ const Gallery = () => {
     } catch (err) {
       alert('Failed to delete image');
     }
-  }, [selectedImage, token, apiUrl]);
+  }, [token, apiUrl]);
 
   const handleDownload = useCallback(async (imageId, imageName) => {
     await downloadImage(imageId, imageName);
@@ -279,19 +358,12 @@ const Gallery = () => {
     setSelectedImage(null);
   }, []);
 
-  // Check if user can delete images
-  const canDeleteImages = useCallback(() => {
-    // Admin can always delete
+  // Whether the current user can delete here — derived boolean (was a function
+  // rebuilt every render). Memoized so it's a stable prop for the memoized cards.
+  const canDelete = useMemo(() => {
     if (user?.role === 'admin') return true;
-
-    // If viewing all folders or no specific folder, check if user is admin
     if (selectedFolder === 'all') return user?.role === 'admin';
-
-    // Check folder permissions
-    if (currentFolder) {
-      return currentFolder.canWrite || currentFolder.canDelete;
-    }
-
+    if (currentFolder) return currentFolder.canWrite || currentFolder.canDelete;
     return false;
   }, [user, selectedFolder, currentFolder]);
 
@@ -420,55 +492,6 @@ const Gallery = () => {
     return Object.values(grouped);
   }, [images]);
 
-  // Compact card renderer used by the search results grid (selection mode is
-  // disabled while searching, so this stays focused on view/favorite/download/delete).
-  const renderImageCard = (image) => (
-    <div key={image._id} className="gallery-item">
-      <LazyImage
-        image={image}
-        alt={image.originalName || image.filename}
-        onClick={() => openLightbox(image)}
-      />
-      {isAdminView && (
-        <div className="image-info">
-          <p className="image-folder">{image.folder?.name || 'Unknown Folder'}</p>
-          <p className="image-uploader">By: {image.uploadedBy?.username || 'Unknown'}</p>
-        </div>
-      )}
-      <div className="image-actions">
-        <button
-          className={`btn-favorite ${image.isFavorited ? 'favorited' : ''}`}
-          onClick={(e) => { e.stopPropagation(); toggleFavorite(image._id, image.isFavorited); }}
-          title={image.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          <svg fill={image.isFavorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-          </svg>
-        </button>
-        <button
-          className="btn-download"
-          onClick={(e) => { e.stopPropagation(); handleDownload(image._id, image.originalName || image.filename); }}
-          title="Download original image"
-        >
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-        </button>
-        {canDeleteImages() && (
-          <button
-            className="btn-delete"
-            onClick={(e) => { e.stopPropagation(); handleDelete(image._id); }}
-            title="Delete image"
-          >
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        )}
-      </div>
-    </div>
-  );
-
   if (loading && !isSearchActive) {
     return (
       <div className="gallery">
@@ -565,7 +588,7 @@ const Gallery = () => {
               </svg>
               Download Selected
             </button>
-            {canDeleteImages() && (
+            {canDelete && (
               <button
                 className="btn btn-danger"
                 onClick={handleBulkDelete}
@@ -597,7 +620,22 @@ const Gallery = () => {
             </div>
           ) : (
             <div className="gallery-grid">
-              {(searchResults || []).map(renderImageCard)}
+              {(searchResults || []).map((image) => (
+                <GalleryCard
+                  key={image._id}
+                  image={image}
+                  isAdminView={isAdminView}
+                  selectionMode={false}
+                  isSelected={false}
+                  canDelete={canDelete}
+                  showFolder
+                  onOpen={openLightbox}
+                  onToggleSelect={toggleImageSelection}
+                  onToggleFavorite={toggleFavorite}
+                  onDownload={handleDownload}
+                  onDelete={handleDelete}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -626,72 +664,20 @@ const Gallery = () => {
 
                   <div className="gallery-grid">
                     {folder.images.slice(0, 10).map((image) => (
-                      <div key={image._id} className={`gallery-item ${selectionMode && selectedImages.has(image._id) ? 'selected' : ''}`}>
-                        {selectionMode && (
-                          <div className="image-checkbox">
-                            <input
-                              type="checkbox"
-                              checked={selectedImages.has(image._id)}
-                              onChange={() => toggleImageSelection(image._id)}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                        )}
-                        <LazyImage
-                          image={image}
-                          alt={image.originalName || image.filename}
-                          onClick={() => selectionMode ? toggleImageSelection(image._id) : openLightbox(image)}
-                          selectionMode={selectionMode}
-                          isSelected={selectedImages.has(image._id)}
-                        />
-                        {isAdminView && (
-                          <div className="image-info">
-                            <p className="image-uploader">
-                              By: {image.uploadedBy?.username || 'Unknown'}
-                            </p>
-                          </div>
-                        )}
-                        <div className="image-actions">
-                          <button
-                            className={`btn-favorite ${image.isFavorited ? 'favorited' : ''}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(image._id, image.isFavorited);
-                            }}
-                            title={image.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-                          >
-                            <svg fill={image.isFavorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                            </svg>
-                          </button>
-                          <button
-                            className="btn-download"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDownload(image._id, image.originalName || image.filename);
-                            }}
-                            title="Download original image"
-                          >
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                          </button>
-                          {canDeleteImages() && (
-                            <button
-                              className="btn-delete"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(image._id);
-                              }}
-                              title="Delete image"
-                            >
-                              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <GalleryCard
+                        key={image._id}
+                        image={image}
+                        isAdminView={isAdminView}
+                        selectionMode={selectionMode}
+                        isSelected={selectedImages.has(image._id)}
+                        canDelete={canDelete}
+                        showFolder={false}
+                        onOpen={openLightbox}
+                        onToggleSelect={toggleImageSelection}
+                        onToggleFavorite={toggleFavorite}
+                        onDownload={handleDownload}
+                        onDelete={handleDelete}
+                      />
                     ))}
                   </div>
 
@@ -713,75 +699,20 @@ const Gallery = () => {
             /* Show single grid when filtering by specific folder */
             <div className="gallery-grid">
               {images.map((image) => (
-                <div key={image._id} className={`gallery-item ${selectionMode && selectedImages.has(image._id) ? 'selected' : ''}`}>
-                  {selectionMode && (
-                    <div className="image-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={selectedImages.has(image._id)}
-                        onChange={() => toggleImageSelection(image._id)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                  )}
-                  <LazyImage
-                    image={image}
-                    alt={image.originalName || image.filename}
-                    onClick={() => selectionMode ? toggleImageSelection(image._id) : openLightbox(image)}
-                    selectionMode={selectionMode}
-                    isSelected={selectedImages.has(image._id)}
-                  />
-                  {isAdminView && (
-                    <div className="image-info">
-                      <p className="image-folder">
-                        {image.folder?.name || 'Unknown Folder'}
-                      </p>
-                      <p className="image-uploader">
-                        By: {image.uploadedBy?.username || 'Unknown'}
-                      </p>
-                    </div>
-                  )}
-                  <div className="image-actions">
-                    <button
-                      className={`btn-favorite ${image.isFavorited ? 'favorited' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(image._id, image.isFavorited);
-                      }}
-                      title={image.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-                    >
-                      <svg fill={image.isFavorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                      </svg>
-                    </button>
-                    <button
-                      className="btn-download"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownload(image._id, image.originalName || image.filename);
-                      }}
-                      title="Download original image"
-                    >
-                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                    </button>
-                    {canDeleteImages() && (
-                      <button
-                        className="btn-delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(image._id);
-                        }}
-                        title="Delete image"
-                      >
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <GalleryCard
+                  key={image._id}
+                  image={image}
+                  isAdminView={isAdminView}
+                  selectionMode={selectionMode}
+                  isSelected={selectedImages.has(image._id)}
+                  canDelete={canDelete}
+                  showFolder
+                  onOpen={openLightbox}
+                  onToggleSelect={toggleImageSelection}
+                  onToggleFavorite={toggleFavorite}
+                  onDownload={handleDownload}
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
           )}
@@ -790,7 +721,7 @@ const Gallery = () => {
           {selectedFolder !== 'all' && images.length > 0 && (
             <div ref={loadMoreRef} style={{ marginTop: '2rem', textAlign: 'center' }}>
               {totalImages > 0 && (
-                <p style={{ color: '#64748b', marginBottom: '1rem' }}>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
                   Showing {images.length} of {totalImages} images
                 </p>
               )}
@@ -816,7 +747,7 @@ const Gallery = () => {
               )}
 
               {!hasMore && images.length > 0 && (
-                <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
+                <p style={{ color: 'var(--text-subtle)', fontSize: '0.9rem' }}>
                   All images loaded
                 </p>
               )}
@@ -867,7 +798,7 @@ const Gallery = () => {
                   {selectedImage.tags.map(tag => (
                     <span key={tag} className="tag-chip">
                       {tag}
-                      {canDeleteImages() && (
+                      {canDelete && (
                         <button
                           type="button"
                           className="tag-remove"
@@ -881,7 +812,7 @@ const Gallery = () => {
                   ))}
                 </div>
               )}
-              {canDeleteImages() && (
+              {canDelete && (
                 <form
                   className="tag-add"
                   onSubmit={(e) => { e.preventDefault(); addTag(selectedImage, tagDraft); }}
@@ -911,7 +842,7 @@ const Gallery = () => {
                 </svg>
                 Download
               </button>
-              {canDeleteImages() && (
+              {canDelete && (
                 <button
                   className="btn btn-danger"
                   onClick={() => {
