@@ -9,7 +9,8 @@ const sharp = require('sharp');
 const { join } = require('path');
 const { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } = require('fs');
 const { networkInterfaces } = require('os');
-const localtunnel = require('localtunnel');
+// localtunnel is dev-only (lazy-required inside the ENABLE_TUNNEL block below) so
+// it — and its old transitive deps — are no longer pulled into the prod image.
 const https = require('https');
 const { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
@@ -298,6 +299,27 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Global error handler — must be registered LAST. Responds with JSON (not the
+// default HTML error page), maps Multer upload errors to proper status codes,
+// and never leaks internal error messages or stack traces in production.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'File too large' });
+  }
+  if (err && err.name === 'MulterError') {
+    return res.status(400).json({ error: 'Upload error' });
+  }
+
+  console.error('[error]', err);
+  const isProd = process.env.NODE_ENV === 'production';
+  res.status(err.status || 500).json({
+    error: isProd ? 'Internal server error' : err.message || 'Internal server error',
+  });
+});
+
 // Helper: Get local IP
 const getLocalIP = () => {
   const nets = networkInterfaces();
@@ -347,6 +369,9 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     setTimeout(async () => {
       try {
         console.log(`\n🌐 Starting localtunnel for frontend (port 3000)...`);
+
+        // Lazy-load: only needed when tunnelling locally, never in production.
+        const localtunnel = require('localtunnel');
 
         // Generate a random subdomain to avoid conflicts
         const subdomain = `img-${Math.random().toString(36).substring(2, 8)}`;

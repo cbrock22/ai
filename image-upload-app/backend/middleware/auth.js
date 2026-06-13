@@ -1,7 +1,13 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
+// Never ship a hardcoded default secret: with a known secret anyone can forge a
+// valid JWT and impersonate any user (including admins). Fail fast in production
+// if it isn't configured; allow an obviously-insecure fallback only in dev.
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('FATAL: JWT_SECRET must be set in production.');
+}
+const JWT_SECRET = process.env.JWT_SECRET || 'insecure-dev-only-secret-do-not-use-in-prod';
 
 // Middleware to verify JWT token
 const authenticateToken = async (req, res, next) => {
