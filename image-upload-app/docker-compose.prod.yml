@@ -41,9 +41,15 @@ services:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./certbot/www:/var/www/certbot:ro
       - ./certbot/conf:/etc/letsencrypt:ro
+    # Start nginx as soon as the backend CONTAINER is up — do NOT hard-gate on
+    # the backend healthcheck. The deploy script runs `down` then `up`, so if the
+    # backend is briefly unhealthy (e.g. Mongo still connecting) a `service_healthy`
+    # gate leaves nginx unstarted and the whole site unreachable. With
+    # `service_started`, nginx always comes up: if the API isn't ready yet, users
+    # get a momentary 502 that self-heals instead of a dead URL.
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
     networks:
       - app-network
     logging:
