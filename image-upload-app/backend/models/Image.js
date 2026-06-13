@@ -85,6 +85,12 @@ const imageSchema = new mongoose.Schema({
     ref: 'User'
   }],
 
+  // User-assigned tags for search/organization. Lowercased + de-duped on save.
+  tags: {
+    type: [String],
+    default: []
+  },
+
   // Processing status
   processingStatus: {
     type: String,
@@ -103,5 +109,16 @@ const imageSchema = new mongoose.Schema({
     type: Number
   }
 });
+
+// Full-text search index over the human-meaningful fields. Weighted so tag
+// matches rank above filename matches. Enables indexed $text search (relevance
+// scored, language-aware) instead of slow, unindexed $regex scans.
+imageSchema.index(
+  { tags: 'text', originalName: 'text' },
+  { weights: { tags: 5, originalName: 1 }, name: 'image_text_search' }
+);
+
+// Hot read path: listing a folder's images newest-first.
+imageSchema.index({ folder: 1, uploadDate: -1 });
 
 module.exports = mongoose.model('Image', imageSchema);

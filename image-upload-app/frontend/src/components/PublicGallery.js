@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useImageDownload } from '../hooks/useImageDownload';
+import Lightbox from './Lightbox';
 import { buildPictureSources } from '../utils/imageSources';
 import '../common.css';
 import './PublicGallery.css';
@@ -43,19 +44,10 @@ const PublicGallery = () => {
 
   const openLightbox = useCallback((image) => {
     setSelectedImage(image);
-    document.body.style.overflow = 'hidden';
   }, []);
 
   const closeLightbox = useCallback(() => {
     setSelectedImage(null);
-    document.body.style.overflow = 'unset';
-  }, []);
-
-  // Cleanup: unlock scrolling when component unmounts
-  useEffect(() => {
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, []);
 
   if (loading) {
@@ -146,24 +138,14 @@ const PublicGallery = () => {
       )}
 
       {/* Lightbox for viewing full images */}
-      {selectedImage && (
-        <div className="lightbox" onClick={closeLightbox}>
-          <div className="lightbox-content">
-            {/* Desktop close button - circle with X */}
-            <button className="close-btn close-btn-desktop" onClick={closeLightbox}>
-              &times;
-            </button>
-            {/* Mobile close button - back arrow in upper left */}
-            <button className="close-btn close-btn-mobile" onClick={closeLightbox}>
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
+      <Lightbox open={!!selectedImage} onClose={closeLightbox}>
+        {selectedImage && (
+          <>
             {(() => {
               const picture = buildPictureSources(selectedImage);
               const fallback = (picture && picture.fallbackSrc) || selectedImage.url;
               const imgEl = (
-                <img src={fallback} alt={selectedImage.filename} decoding="async" onClick={(e) => e.stopPropagation()} />
+                <img src={fallback} alt={selectedImage.filename} decoding="async" />
               );
               if (!picture) return imgEl;
               return (
@@ -175,7 +157,7 @@ const PublicGallery = () => {
                 </picture>
               );
             })()}
-            <div className="lightbox-actions" onClick={(e) => e.stopPropagation()}>
+            <div className="lightbox-actions">
               <button
                 className="btn btn-primary"
                 onClick={() => downloadImage(selectedImage._id, selectedImage.filename)}
@@ -186,9 +168,9 @@ const PublicGallery = () => {
                 Download
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Lightbox>
     </div>
   );
 };

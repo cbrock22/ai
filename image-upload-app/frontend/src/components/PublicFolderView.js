@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useImageDownload } from '../hooks/useImageDownload';
+import Lightbox from './Lightbox';
 import '../common.css';
 import './PublicFolderView.css';
 
@@ -110,19 +111,10 @@ const PublicFolderView = () => {
 
   const openLightbox = useCallback((image) => {
     setSelectedImage(image);
-    document.body.style.overflow = 'hidden';
   }, []);
 
   const closeLightbox = useCallback(() => {
     setSelectedImage(null);
-    document.body.style.overflow = 'unset';
-  }, []);
-
-  // Cleanup: unlock scrolling when component unmounts
-  useEffect(() => {
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
   }, []);
 
   if (loading) {
@@ -268,28 +260,18 @@ const PublicFolderView = () => {
       )}
 
       {/* Lightbox */}
-      {selectedImage && (
-        <div className="lightbox" onClick={closeLightbox}>
-          <div className="lightbox-content">
-            {/* Desktop close button - circle with X */}
-            <button className="close-btn close-btn-desktop" onClick={closeLightbox}>
-              &times;
-            </button>
-            {/* Mobile close button - back arrow in upper left */}
-            <button className="close-btn close-btn-mobile" onClick={closeLightbox}>
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
-            <img src={selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} decoding="async" onClick={(e) => e.stopPropagation()} />
-            <div className="lightbox-info" onClick={(e) => e.stopPropagation()}>
+      <Lightbox open={!!selectedImage} onClose={closeLightbox}>
+        {selectedImage && (
+          <>
+            <img src={selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} decoding="async" />
+            <div className="lightbox-info">
               <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
               <p><strong>Uploaded by:</strong> {selectedImage.uploadedBy?.username || 'Unknown'}</p>
               <p className="upload-date">
                 <strong>Date:</strong> {new Date(selectedImage.uploadDate).toLocaleString()}
               </p>
             </div>
-            <div className="lightbox-actions" onClick={(e) => e.stopPropagation()}>
+            <div className="lightbox-actions">
               <button
                 className="btn btn-primary"
                 onClick={() => downloadImage(selectedImage._id, selectedImage.originalName || selectedImage.filename)}
@@ -300,9 +282,9 @@ const PublicFolderView = () => {
                 Download
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Lightbox>
     </div>
   );
 };

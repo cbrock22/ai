@@ -3,6 +3,7 @@ import { useInView } from 'react-intersection-observer';
 import { useAuth } from '../context/AuthContext';
 import { useImageDownload } from '../hooks/useImageDownload';
 import LazyImage from './LazyImage';
+import Lightbox from './Lightbox';
 import { buildPictureSources } from '../utils/imageSources';
 import '../common.css';
 import './Gallery.css';
@@ -23,6 +24,38 @@ const Gallery = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalImages, setTotalImages] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null); // null = not searching
+  const [searching, setSearching] = useState(false);
+  const [tagDraft, setTagDraft] = useState('');
+
+  const isSearchActive = searchQuery.trim() !== '';
+
+  // Debounced full-text search across filename + tags (all accessible folders).
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const handle = setTimeout(async () => {
+      try {
+        const response = await fetch(`${apiUrl}/api/images?q=${encodeURIComponent(q)}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          credentials: 'include'
+        });
+        const data = await response.json();
+        setSearchResults(response.ok && Array.isArray(data) ? data : []);
+      } catch (err) {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchQuery, apiUrl, token]);
 
   // Fetch folders
   useEffect(() => {
@@ -149,12 +182,12 @@ const Gallery = () => {
       });
 
       if (response.ok) {
-        // Update local state
-        setImages(prev => prev.map(img =>
-          img._id === imageId
-            ? { ...img, isFavorited: !currentStatus }
-            : img
-        ));
+        // Update local state (both the normal grid and any active search view)
+        const apply = list => list.map(img =>
+          img._id === imageId ? { ...img, isFavorited: !currentStatus } : img
+        );
+        setImages(prev => apply(prev));
+        setSearchResults(prev => (prev ? apply(prev) : prev));
       } else {
         alert('Failed to update favorite status');
       }
@@ -177,6 +210,7 @@ const Gallery = () => {
 
       if (response.ok) {
         setImages(prev => prev.filter(img => img._id !== imageId));
+        setSearchResults(prev => (prev ? prev.filter(img => img._id !== imageId) : prev));
         if (selectedImage?._id === imageId) setSelectedImage(null);
       } else {
         const data = await response.json();
@@ -191,16 +225,58 @@ const Gallery = () => {
     await downloadImage(imageId, imageName);
   }, [downloadImage]);
 
+  // Persist a new tag list for an image and sync it across all local views.
+  const saveTags = useCallback(async (imageId, tags) => {
+    try {
+      const response = await fetch(`${apiUrl}/api/images/${imageId}/tags`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ tags })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const apply = list => list.map(img =>
+          img._id === imageId ? { ...img, tags: data.tags } : img
+        );
+        setImages(prev => apply(prev));
+        setSearchResults(prev => (prev ? apply(prev) : prev));
+        setSelectedImage(prev =>
+          prev && prev._id === imageId ? { ...prev, tags: data.tags } : prev
+        );
+      } else {
+        alert('Failed to update tags');
+      }
+    } catch (err) {
+      alert('Failed to update tags');
+    }
+  }, [apiUrl, token]);
+
+  const addTag = useCallback((image, raw) => {
+    const tag = (raw || '').trim().toLowerCase();
+    if (!tag) return;
+    const current = image.tags || [];
+    if (current.includes(tag)) { setTagDraft(''); return; }
+    saveTags(image._id, [...current, tag]);
+    setTagDraft('');
+  }, [saveTags]);
+
+  const removeTag = useCallback((image, tag) => {
+    const current = image.tags || [];
+    saveTags(image._id, current.filter(t => t !== tag));
+  }, [saveTags]);
+
   const openLightbox = useCallback((image) => {
     setSelectedImage(image);
-    // Lock scrolling when opening lightbox
-    document.body.style.overflow = 'hidden';
+    setTagDraft('');
   }, []);
 
   const closeLightbox = useCallback(() => {
     setSelectedImage(null);
-    // Unlock scrolling when closing lightbox
-    document.body.style.overflow = 'unset';
   }, []);
 
   // Check if user can delete images
@@ -344,7 +420,56 @@ const Gallery = () => {
     return Object.values(grouped);
   }, [images]);
 
-  if (loading) {
+  // Compact card renderer used by the search results grid (selection mode is
+  // disabled while searching, so this stays focused on view/favorite/download/delete).
+  const renderImageCard = (image) => (
+    <div key={image._id} className="gallery-item">
+      <LazyImage
+        image={image}
+        alt={image.originalName || image.filename}
+        onClick={() => openLightbox(image)}
+      />
+      {isAdminView && (
+        <div className="image-info">
+          <p className="image-folder">{image.folder?.name || 'Unknown Folder'}</p>
+          <p className="image-uploader">By: {image.uploadedBy?.username || 'Unknown'}</p>
+        </div>
+      )}
+      <div className="image-actions">
+        <button
+          className={`btn-favorite ${image.isFavorited ? 'favorited' : ''}`}
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(image._id, image.isFavorited); }}
+          title={image.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <svg fill={image.isFavorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+          </svg>
+        </button>
+        <button
+          className="btn-download"
+          onClick={(e) => { e.stopPropagation(); handleDownload(image._id, image.originalName || image.filename); }}
+          title="Download original image"
+        >
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+        </button>
+        {canDeleteImages() && (
+          <button
+            className="btn-delete"
+            onClick={(e) => { e.stopPropagation(); handleDelete(image._id); }}
+            title="Delete image"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  if (loading && !isSearchActive) {
     return (
       <div className="gallery">
         <div className="loading">
@@ -373,6 +498,16 @@ const Gallery = () => {
       <div className="gallery-header">
         <h2>Image Gallery</h2>
         <div className="gallery-controls">
+          <div className="gallery-search">
+            <input
+              type="search"
+              className="search-input"
+              placeholder="Search by name or tag…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search images by name or tag"
+            />
+          </div>
           <div className="folder-filter">
             <label htmlFor="folder-filter">Filter by folder:</label>
             <select
@@ -404,7 +539,7 @@ const Gallery = () => {
         </div>
       </div>
 
-      {selectionMode && (
+      {selectionMode && !isSearchActive && (
         <div className="bulk-actions-bar">
           <div className="selection-info">
             <span>{selectedImages.size} selected</span>
@@ -446,7 +581,27 @@ const Gallery = () => {
         </div>
       )}
 
-      {images.length === 0 ? (
+      {isSearchActive ? (
+        <div className="search-results">
+          <div className="gallery-info">
+            <p>
+              {searching
+                ? 'Searching…'
+                : `${searchResults ? searchResults.length : 0} result${(searchResults && searchResults.length === 1) ? '' : 's'} for “${searchQuery.trim()}”`}
+            </p>
+          </div>
+          {(!searching && searchResults && searchResults.length === 0) ? (
+            <div className="empty-state">
+              <p>No images match “{searchQuery.trim()}”</p>
+              <p className="empty-subtitle">Try a different name or tag.</p>
+            </div>
+          ) : (
+            <div className="gallery-grid">
+              {(searchResults || []).map(renderImageCard)}
+            </div>
+          )}
+        </div>
+      ) : images.length === 0 ? (
         <div className="empty-state">
           <p>No images uploaded yet</p>
           <p className="empty-subtitle">Upload some images to get started!</p>
@@ -670,19 +825,9 @@ const Gallery = () => {
         </>
       )}
 
-      {selectedImage && (
-        <div className="lightbox" onClick={closeLightbox}>
-          <div className="lightbox-content">
-            {/* Desktop close button - circle with X */}
-            <button className="close-btn close-btn-desktop" onClick={closeLightbox}>
-              &times;
-            </button>
-            {/* Mobile close button - back arrow in upper left */}
-            <button className="close-btn close-btn-mobile" onClick={closeLightbox}>
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
+      <Lightbox open={!!selectedImage} onClose={closeLightbox}>
+        {selectedImage && (
+          <>
             {(() => {
               const picture = buildPictureSources(selectedImage);
               const fallback = (picture && picture.fallbackSrc) || selectedImage.originalUrl || selectedImage.url;
@@ -691,7 +836,6 @@ const Gallery = () => {
                   src={fallback}
                   alt={selectedImage.originalName || selectedImage.filename}
                   decoding="async"
-                  onClick={(e) => e.stopPropagation()}
                 />
               );
               // Legacy images (no renditions): plain <img> on the original.
@@ -705,7 +849,7 @@ const Gallery = () => {
                 </picture>
               );
             })()}
-            <div className="lightbox-info" onClick={(e) => e.stopPropagation()}>
+            <div className="lightbox-info">
               <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
               <p><strong>Folder:</strong> {selectedImage.folder?.name || 'Unknown'}</p>
               {isAdminView && (
@@ -717,7 +861,47 @@ const Gallery = () => {
                 </>
               )}
             </div>
-            <div className="lightbox-actions" onClick={(e) => e.stopPropagation()}>
+            <div className="lightbox-tags">
+              {(selectedImage.tags && selectedImage.tags.length > 0) && (
+                <div className="tag-chips">
+                  {selectedImage.tags.map(tag => (
+                    <span key={tag} className="tag-chip">
+                      {tag}
+                      {canDeleteImages() && (
+                        <button
+                          type="button"
+                          className="tag-remove"
+                          onClick={() => removeTag(selectedImage, tag)}
+                          aria-label={`Remove tag ${tag}`}
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {canDeleteImages() && (
+                <form
+                  className="tag-add"
+                  onSubmit={(e) => { e.preventDefault(); addTag(selectedImage, tagDraft); }}
+                >
+                  <input
+                    type="text"
+                    className="tag-input"
+                    placeholder="Add a tag…"
+                    value={tagDraft}
+                    onChange={(e) => setTagDraft(e.target.value)}
+                    maxLength={40}
+                    aria-label="Add a tag"
+                  />
+                  <button type="submit" className="tag-add-btn" disabled={!tagDraft.trim()}>
+                    Add
+                  </button>
+                </form>
+              )}
+            </div>
+            <div className="lightbox-actions">
               <button
                 className="btn btn-primary"
                 onClick={() => handleDownload(selectedImage._id, selectedImage.originalName || selectedImage.filename)}
@@ -742,9 +926,9 @@ const Gallery = () => {
                 </button>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Lightbox>
     </div>
   );
 }

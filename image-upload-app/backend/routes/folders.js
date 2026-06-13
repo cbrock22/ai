@@ -97,26 +97,25 @@ router.get('/public-gallery', async (req, res) => {
       displayOnPublicGallery: true
     })
     .populate('owner', 'username email')
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
 
     // Enhance folders with image counts and preview images (10 images)
     const foldersWithImages = await Promise.all(
-      folders.map(async (folder) => {
-        const folderObj = folder.toObject();
-
+      folders.map(async (folderObj) => {
         // Get image count
-        folderObj.imageCount = await Image.countDocuments({ folder: folder._id });
+        folderObj.imageCount = await Image.countDocuments({ folder: folderObj._id });
 
-        // Get first 10 images for preview
-        const previewImages = await Image.find({ folder: folder._id })
+        // Get first 10 images for preview (read-only -> .lean())
+        const previewImages = await Image.find({ folder: folderObj._id })
           .select('url filename thumbnailUrl renditions originalUrl')
           .limit(10)
-          .sort({ uploadDate: -1 });
+          .sort({ uploadDate: -1 })
+          .lean();
 
         // Ensure URLs are absolute
         const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
-        folderObj.previewImages = previewImages.map(img => {
-          const imgObj = img.toObject();
+        folderObj.previewImages = previewImages.map(imgObj => {
           if (imgObj.url && imgObj.url.startsWith('/uploads/')) {
             imgObj.url = `${backendUrl}${imgObj.url}`;
           }
@@ -140,8 +139,10 @@ router.get('/public-gallery', async (req, res) => {
 // Public folder viewing route (no authentication required, but may need password)
 router.get('/public/:folderId', validate({ params: folderIdParams }), async (req, res) => {
   try {
+    // Read-only public view -> .lean() for plain objects (no hydration).
     const folder = await Folder.findById(req.params.folderId)
-      .populate('owner', 'username email');
+      .populate('owner', 'username email')
+      .lean();
 
     if (!folder) {
       return res.status(404).json({ error: 'Folder not found' });
@@ -151,22 +152,22 @@ router.get('/public/:folderId', validate({ params: folderIdParams }), async (req
       return res.status(403).json({ error: 'This folder is not public' });
     }
 
-    // Get images in this folder
+    // Get images in this folder (read-only -> .lean())
     const images = await Image.find({ folder: folder._id })
       .populate('uploadedBy', 'username email')
-      .sort({ uploadDate: -1 });
+      .sort({ uploadDate: -1 })
+      .lean();
 
     // Ensure URLs are absolute
     const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
-    const imagesWithAbsoluteUrls = images.map(img => {
-      const imgObj = img.toObject();
+    const imagesWithAbsoluteUrls = images.map(imgObj => {
       if (imgObj.url && imgObj.url.startsWith('/uploads/')) {
         imgObj.url = `${backendUrl}${imgObj.url}`;
       }
       return imgObj;
     });
 
-    const folderObj = folder.toObject();
+    const folderObj = folder;
     folderObj.imageCount = images.length;
     folderObj.images = imagesWithAbsoluteUrls;
 
@@ -196,25 +197,24 @@ router.get('/', async (req, res) => {
 
     const folders = await Folder.find(query)
     .populate('owner', 'username email')
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
 
     // Enhance folders with image counts and preview images
     const foldersWithImages = await Promise.all(
-      folders.map(async (folder) => {
-        const folderObj = folder.toObject();
-
+      folders.map(async (folderObj) => {
         // Get image count
-        folderObj.imageCount = await Image.countDocuments({ folder: folder._id });
+        folderObj.imageCount = await Image.countDocuments({ folder: folderObj._id });
 
-        // Get first 3 images for preview
-        const previewImages = await Image.find({ folder: folder._id })
+        // Get first 3 images for preview (read-only -> .lean())
+        const previewImages = await Image.find({ folder: folderObj._id })
           .select('url filename')
           .limit(3)
-          .sort({ uploadDate: -1 });
+          .sort({ uploadDate: -1 })
+          .lean();
 
         // Ensure URLs are absolute
-        folderObj.previewImages = previewImages.map(img => {
-          const imgObj = img.toObject();
+        folderObj.previewImages = previewImages.map(imgObj => {
           if (imgObj.url && imgObj.url.startsWith('/uploads/')) {
             // Convert relative URL to absolute
             const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
@@ -224,9 +224,9 @@ router.get('/', async (req, res) => {
         });
 
         // Add permission flags for current user
-        const isOwner = folder.owner._id.toString() === req.user._id.toString();
+        const isOwner = folderObj.owner._id.toString() === req.user._id.toString();
         const isAdmin = req.user.role === 'admin';
-        const userPermission = folder.permissions.find(
+        const userPermission = (folderObj.permissions || []).find(
           p => p.user && p.user.toString() === req.user._id.toString()
         );
 
@@ -350,8 +350,9 @@ router.put('/:folderId',
 // Delete folder (cascade delete all images and S3 objects)
 router.delete('/:folderId', validate({ params: folderIdParams }), checkFolderAccess('admin'), async (req, res) => {
   try {
-    // Get all images in this folder
-    const images = await Image.find({ folder: req.folder._id });
+    // Get all images in this folder (read-only: we only read filenames here
+    // before deleting the records, so .lean() is safe and faster).
+    const images = await Image.find({ folder: req.folder._id }).lean();
 
     // Delete each image from storage (S3 or local) - compressed, original, and thumbnail
     for (const image of images) {

@@ -128,6 +128,23 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
+// Health probe for Docker / orchestration. Intentionally lives OUTSIDE /api so
+// it is not rate-limited and requires no auth. Returns 200 only when Mongo is
+// actually connected (readyState === 1); otherwise 503. This lets
+// `depends_on: condition: service_healthy` hold dependents (nginx, frontend)
+// until the API can really serve DB-backed requests.
+const MONGO_STATES = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+app.get('/health', (req, res) => {
+  const state = mongoose.connection.readyState;
+  const dbConnected = state === 1;
+  res.status(dbConnected ? 200 : 503).json({
+    status: dbConnected ? 'ok' : 'degraded',
+    db: MONGO_STATES[state] || 'unknown',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
 // General API rate limit (auth endpoints get a stricter limit of their own).
 app.use('/api', apiLimiter);
 
