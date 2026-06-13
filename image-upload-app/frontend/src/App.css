@@ -1,3 +1,95 @@
 .App {
   min-height: 100vh;
 }
+
+/* ---------------------------------------------------------------------------
+   Navigation — Warm Stone, token-driven (replaces the pink/purple glass nav).
+   Layout still comes from Tailwind utilities in App.js; color/surface here so
+   the sidebar reskins and supports dark mode from the design tokens.
+   --------------------------------------------------------------------------- */
+.app-sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-brand {
+  color: var(--accent);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.app-welcome {
+  color: var(--text-subtle);
+}
+
+.nav-link {
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+.nav-link:hover {
+  color: var(--accent);
+}
+
+.nav-divider {
+  border-top: 1px solid var(--border);
+}
+
+.nav-logout {
+  color: var(--danger);
+  transition: color 0.2s ease;
+}
+.nav-logout:hover {
+  color: var(--danger-text);
+}
+
+.view-toggle {
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  transition: background 0.2s ease;
+}
+.view-toggle:hover {
+  background: var(--surface-2);
+}
+
+/* Theme toggle (light/dark) */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.app-hamburger {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+.app-hamburger .bar {
+  background: var(--accent);
+}
+
+.app-overlay {
+  background: var(--overlay);
+}

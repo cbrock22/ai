@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './components/Home';
 import Login from './components/Login';
@@ -13,6 +14,22 @@ import FolderDetail from './components/FolderDetail';
 import PublicFolderView from './components/PublicFolderView';
 import Users from './components/Users';
 import './App.css';
+
+function ThemeToggleButton() {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === 'dark';
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      className="theme-toggle"
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      <span aria-hidden="true">{isDark ? '☀' : '☾'}</span>
+      {isDark ? 'Light mode' : 'Dark mode'}
+    </button>
+  );
+}
 
 function AppContent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -28,25 +45,25 @@ function AppContent() {
       {/* Floating Hamburger Menu Button - Mobile Only */}
       <button
         onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="md:hidden fixed bottom-6 left-6 z-50 bg-white/80 backdrop-blur-lg rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+        className="app-hamburger md:hidden fixed bottom-6 left-6 z-50 rounded-full p-4 transition-all duration-300 hover:scale-105"
         aria-label="Toggle menu"
       >
         <div className="w-6 h-5 flex flex-col justify-between">
-          <span className={`w-full h-0.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full transition-all duration-300 ${isMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
-          <span className={`w-full h-0.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full transition-all duration-300 ${isMenuOpen ? 'opacity-0' : ''}`}></span>
-          <span className={`w-full h-0.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-full transition-all duration-300 ${isMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
+          <span className={`bar w-full h-0.5 rounded-full transition-all duration-300 ${isMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
+          <span className={`bar w-full h-0.5 rounded-full transition-all duration-300 ${isMenuOpen ? 'opacity-0' : ''}`}></span>
+          <span className={`bar w-full h-0.5 rounded-full transition-all duration-300 ${isMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
         </div>
       </button>
 
       {/* Desktop Menu - Always Visible */}
-      <div className="hidden md:block fixed top-0 left-0 h-full w-64 bg-white/40 backdrop-blur-xl shadow-2xl z-40 border-r border-white/30">
+      <div className="hidden md:block fixed top-0 left-0 h-full w-64 app-sidebar z-40">
         <div className="pt-8 px-8 flex flex-col gap-6">
           <div>
-            <h2 className="text-2xl font-light bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent mb-2">
+            <h2 className="app-brand text-2xl mb-2">
               opticoles pics
             </h2>
             {isAuthenticated && (
-              <p className="text-sm text-slate-500 font-light">
+              <p className="app-welcome text-sm">
                 Welcome, {user?.username}
               </p>
             )}
@@ -57,35 +74,35 @@ function AppContent() {
               <Link
                 to="/"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Public Gallery
               </Link>
               <Link
                 to="/home"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Dashboard
               </Link>
               <Link
                 to="/folders"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Folders
               </Link>
               <Link
                 to="/upload"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Upload
               </Link>
               <Link
                 to="/gallery"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Gallery
               </Link>
@@ -93,24 +110,25 @@ function AppContent() {
                 <Link
                   to="/users"
                   onClick={() => setIsMenuOpen(false)}
-                  className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                  className="nav-link text-lg font-light"
                 >
                   Users
                 </Link>
               )}
               {isAdmin && (
-                <div className="pt-4 border-t border-slate-200/50">
+                <div className="pt-4 nav-divider">
                   <button
                     onClick={toggleViewMode}
-                    className="w-full text-left px-4 py-2 rounded-lg bg-gradient-to-r from-pink-50 to-purple-50 text-slate-700 hover:from-pink-100 hover:to-purple-100 transition-all duration-200 text-sm font-medium"
+                    className="view-toggle"
                   >
                     {viewMode === 'admin' ? '👑 Admin View' : '👤 User View'}
                   </button>
                 </div>
               )}
+              <ThemeToggleButton />
               <button
                 onClick={handleLogout}
-                className="text-left text-red-500 hover:text-red-600 transition-colors duration-200 text-lg font-light"
+                className="nav-logout text-left text-lg font-light"
               >
                 Logout
               </button>
@@ -120,31 +138,32 @@ function AppContent() {
               <Link
                 to="/login"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Login
               </Link>
               <Link
                 to="/signup"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Sign Up
               </Link>
+              <ThemeToggleButton />
             </>
           )}
         </div>
       </div>
 
       {/* Mobile Menu Panel - Slides in from left */}
-      <div className={`md:hidden fixed top-0 left-0 h-full w-64 bg-white/40 backdrop-blur-xl shadow-2xl z-40 border-r border-white/30 transform transition-transform duration-300 ease-in-out ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className={`md:hidden fixed top-0 left-0 h-full w-64 app-sidebar z-40 transform transition-transform duration-300 ease-in-out ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="pt-8 px-8 flex flex-col gap-6">
           <div>
-            <h2 className="text-2xl font-light bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 bg-clip-text text-transparent mb-2">
+            <h2 className="app-brand text-2xl mb-2">
               opticoles pics
             </h2>
             {isAuthenticated && (
-              <p className="text-sm text-slate-500 font-light">
+              <p className="app-welcome text-sm">
                 Welcome, {user?.username}
               </p>
             )}
@@ -155,35 +174,35 @@ function AppContent() {
               <Link
                 to="/"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Public Gallery
               </Link>
               <Link
                 to="/home"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Dashboard
               </Link>
               <Link
                 to="/folders"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Folders
               </Link>
               <Link
                 to="/upload"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Upload
               </Link>
               <Link
                 to="/gallery"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Gallery
               </Link>
@@ -191,24 +210,25 @@ function AppContent() {
                 <Link
                   to="/users"
                   onClick={() => setIsMenuOpen(false)}
-                  className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                  className="nav-link text-lg font-light"
                 >
                   Users
                 </Link>
               )}
               {isAdmin && (
-                <div className="pt-4 border-t border-slate-200/50">
+                <div className="pt-4 nav-divider">
                   <button
                     onClick={toggleViewMode}
-                    className="w-full text-left px-4 py-2 rounded-lg bg-gradient-to-r from-pink-50 to-purple-50 text-slate-700 hover:from-pink-100 hover:to-purple-100 transition-all duration-200 text-sm font-medium"
+                    className="view-toggle"
                   >
                     {viewMode === 'admin' ? '👑 Admin View' : '👤 User View'}
                   </button>
                 </div>
               )}
+              <ThemeToggleButton />
               <button
                 onClick={handleLogout}
-                className="text-left text-red-500 hover:text-red-600 transition-colors duration-200 text-lg font-light"
+                className="nav-logout text-left text-lg font-light"
               >
                 Logout
               </button>
@@ -218,17 +238,18 @@ function AppContent() {
               <Link
                 to="/login"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Login
               </Link>
               <Link
                 to="/signup"
                 onClick={() => setIsMenuOpen(false)}
-                className="text-slate-600 hover:text-pink-500 transition-colors duration-200 text-lg font-light"
+                className="nav-link text-lg font-light"
               >
                 Sign Up
               </Link>
+              <ThemeToggleButton />
             </>
           )}
         </div>
@@ -237,7 +258,7 @@ function AppContent() {
       {/* Overlay */}
       {isMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 transition-opacity duration-300"
+          className="app-overlay fixed inset-0 z-30 transition-opacity duration-300"
           onClick={() => setIsMenuOpen(false)}
         ></div>
       )}
@@ -310,9 +331,11 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </ThemeProvider>
     </Router>
   );
 }

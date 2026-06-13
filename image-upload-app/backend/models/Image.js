@@ -91,6 +91,15 @@ const imageSchema = new mongoose.Schema({
     default: []
   },
 
+  // SHA-256 of the raw uploaded bytes (pre-Sharp). Used to detect and skip
+  // re-uploads of an identical file within the same folder so we don't store
+  // duplicate S3 objects / DB rows. Folder-scoped (see index below) rather than
+  // a hard global unique constraint, so the same photo can still live in two
+  // different albums intentionally.
+  hash: {
+    type: String
+  },
+
   // Processing status
   processingStatus: {
     type: String,
@@ -118,7 +127,12 @@ imageSchema.index(
   { weights: { tags: 5, originalName: 1 }, name: 'image_text_search' }
 );
 
-// Hot read path: listing a folder's images newest-first.
-imageSchema.index({ folder: 1, uploadDate: -1 });
+// Hot read path: listing a folder's images newest-first. The trailing _id gives
+// the keyset (cursor) pagination a stable, unique tiebreaker so the range scan
+// {uploadDate,_id} < cursor walks the index directly — no skip()-and-discard.
+imageSchema.index({ folder: 1, uploadDate: -1, _id: -1 });
+
+// Folder-scoped duplicate detection on re-upload (see `hash` above).
+imageSchema.index({ folder: 1, hash: 1 });
 
 module.exports = mongoose.model('Image', imageSchema);

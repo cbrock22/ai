@@ -1,0 +1,147 @@
+/* ===========================================================================
+   Warm Stone — design tokens (single source of truth for color/theme)
+   ---------------------------------------------------------------------------
+   2026 "elevated neutrals" direction: warm sand surfaces, charcoal text, and a
+   single decisive terracotta accent. Replaces the old pink/purple/cyan
+   glassmorphism. Every component reads these variables so the whole app
+   reskins from one place and supports light + dark mode.
+
+   Theme is selected by `data-theme` on <html> (set by ThemeContext):
+     <html data-theme="light"> / <html data-theme="dark">
+   When no attribute is present we fall back to the OS preference.
+   =========================================================================== */
+
+:root {
+  /* Surfaces — warm sand page, near-white cards */
+  --bg:            #F5F1EA;   /* app background (warm sand)           */
+  --surface:       #FFFFFF;   /* cards, panels                        */
+  --surface-2:     #FAF6EF;   /* secondary surface / hover            */
+  --surface-sunken:#EFE9DF;   /* wells, thumbnails, inputs            */
+  --overlay:       rgba(42, 39, 36, 0.55); /* lightbox / modal scrim  */
+
+  /* Borders */
+  --border:        #E7E0D5;
+  --border-strong: #D8CFC0;
+
+  /* Text — warm charcoal, never pure black */
+  --text:          #2A2724;
+  --text-muted:    #6F665B;
+  --text-subtle:   #8A8175;
+  --text-on-accent:#FFFFFF;
+
+  /* Accent — terracotta */
+  --accent:        #C2603A;
+  --accent-hover:  #A84F2E;
+  --accent-active: #8F4324;
+  --accent-soft:   #F3E0D6;   /* tinted background for soft buttons/badges */
+  --accent-text:   #8F4324;   /* accent-colored text that stays readable   */
+
+  /* Semantic (kept warm so they sit in the palette) */
+  --success:       #5E7A3B;
+  --success-soft:  #E9EEDD;
+  --success-text:  #3F5526;
+  --danger:        #C0432E;
+  --danger-soft:   #F6E0DA;
+  --danger-text:   #8F2E1F;
+  --warning:       #C58A2E;
+  --warning-soft:  #F6E8D2;
+  --warning-text:  #8A5E16;
+  --favorite:      #D69A33;   /* star / favorite gold */
+
+  /* Shadows — neutral warm, soft (flat-leaning) */
+  --shadow-sm: 0 1px 2px rgba(60, 50, 40, 0.06);
+  --shadow-md: 0 4px 14px rgba(60, 50, 40, 0.08);
+  --shadow-lg: 0 10px 30px rgba(60, 50, 40, 0.12);
+  --ring:      0 0 0 3px rgba(194, 96, 58, 0.30);
+
+  /* Radii — modern but restrained (was 24–32px) */
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  color-scheme: light;
+}
+
+/* Explicit dark selection + OS-preference fallback share one token block. */
+:root[data-theme="dark"] {
+  --bg:            #1A1714;
+  --surface:       #221E1A;
+  --surface-2:     #2A2521;
+  --surface-sunken:#15120F;
+  --overlay:       rgba(0, 0, 0, 0.62);
+
+  --border:        #36302A;
+  --border-strong: #4A4239;
+
+  --text:          #ECE6DD;
+  --text-muted:    #ADA398;
+  --text-subtle:   #8A8175;
+  --text-on-accent:#1A1714;
+
+  --accent:        #E07A4F;   /* lighter terracotta reads better on dark */
+  --accent-hover:  #EC8B61;
+  --accent-active: #F09E79;
+  --accent-soft:   #3A2A22;
+  --accent-text:   #EFB596;
+
+  --success:       #8FB05F;
+  --success-soft:  #2A2E1F;
+  --success-text:  #B7CE8C;
+  --danger:        #E0705B;
+  --danger-soft:   #3A211B;
+  --danger-text:   #F0A593;
+  --warning:       #DAA94F;
+  --warning-soft:  #352B18;
+  --warning-text:  #E6C485;
+  --favorite:      #E3B452;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.38);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.48);
+  --ring:      0 0 0 3px rgba(224, 122, 79, 0.35);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg:            #1A1714;
+    --surface:       #221E1A;
+    --surface-2:     #2A2521;
+    --surface-sunken:#15120F;
+    --overlay:       rgba(0, 0, 0, 0.62);
+    --border:        #36302A;
+    --border-strong: #4A4239;
+    --text:          #ECE6DD;
+    --text-muted:    #ADA398;
+    --text-subtle:   #8A8175;
+    --text-on-accent:#1A1714;
+    --accent:        #E07A4F;
+    --accent-hover:  #EC8B61;
+    --accent-active: #F09E79;
+    --accent-soft:   #3A2A22;
+    --accent-text:   #EFB596;
+    --success:       #8FB05F;
+    --success-soft:  #2A2E1F;
+    --success-text:  #B7CE8C;
+    --danger:        #E0705B;
+    --danger-soft:   #3A211B;
+    --danger-text:   #F0A593;
+    --warning:       #DAA94F;
+    --warning-soft:  #352B18;
+    --warning-text:  #E6C485;
+    --favorite:      #E3B452;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.38);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.48);
+    --ring:      0 0 0 3px rgba(224, 122, 79, 0.35);
+    color-scheme: dark;
+  }
+}
+
+/* Smooth the light<->dark flip without animating every paint forever. */
+html.theme-transition,
+html.theme-transition * {
+  transition: background-color .25s ease, border-color .25s ease, color .25s ease;
+}

@@ -1,41 +1,31 @@
 /* Shared styles to reduce redundancy across components */
 
-/* Soft Card Style */
+/* Soft Card Style — flat warm surface */
 .soft-card {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.4) 0%,
-    rgba(255, 250, 255, 0.3) 100%);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border-radius: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow:
-    0 8px 32px rgba(219, 39, 119, 0.04),
-    0 4px 16px rgba(147, 51, 234, 0.03),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
   padding: 3rem;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.3s ease;
 }
 
 .soft-card:hover {
   transform: translateY(-2px);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.5) 0%,
-    rgba(255, 250, 255, 0.4) 100%);
-  box-shadow:
-    0 12px 40px rgba(219, 39, 119, 0.06),
-    0 6px 20px rgba(147, 51, 234, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lg);
 }
 
 /* Gradient Buttons */
 .btn {
-  padding: 1rem 2.5rem;
-  border-radius: 24px;
-  font-weight: 400;
+  padding: 0.85rem 2rem;
+  border-radius: var(--radius);
+  font-weight: 500;
   font-size: 1rem;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  letter-spacing: 0.3px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.2px;
   border: none;
   cursor: pointer;
   position: relative;
@@ -59,16 +49,15 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #06b6d4 100%);
-  background-size: 200% 200%;
-  color: white;
-  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.3);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-position: 100% 0;
+  background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.35);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-primary:disabled {
@@ -78,82 +67,67 @@
 }
 
 .btn-secondary {
-  background: linear-gradient(135deg, rgba(236, 72, 153, 0.1), rgba(139, 92, 246, 0.1));
-  color: #ec4899;
-  box-shadow: 0 4px 16px rgba(236, 72, 153, 0.15);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  box-shadow: none;
 }
 
 .btn-secondary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.2);
+  background: var(--surface-2);
 }
 
-/* Soft Input/Upload Areas */
+/* Soft Input/Upload Areas — flat sunken well */
 .soft-zone {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.3) 0%,
-    rgba(249, 240, 255, 0.25) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-strong);
   padding: 3rem;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 4px 16px rgba(139, 92, 246, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
 }
 
 .soft-zone:hover {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.4) 0%,
-    rgba(249, 240, 255, 0.35) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 8px 24px rgba(139, 92, 246, 0.08);
+  background: var(--surface-2);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
 }
 
-/* Gradient Text */
+/* Accent Text (was multi-hue gradient text) */
 .gradient-text {
-  background: linear-gradient(135deg, #d946ef 0%, #6366f1 50%, #06b6d4 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--accent);
+  -webkit-text-fill-color: currentColor;
 }
 
 /* Message boxes */
 .message {
   padding: 1.25rem 1.5rem;
-  border-radius: 20px;
-  font-weight: 300;
-  letter-spacing: 0.3px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  border-radius: var(--radius);
+  font-weight: 400;
+  letter-spacing: 0.2px;
+  border: 1px solid var(--border);
 }
 
 .message.success {
-  background: linear-gradient(135deg,
-    rgba(72, 187, 120, 0.15) 0%,
-    rgba(56, 178, 172, 0.15) 100%);
-  color: #047857;
-  box-shadow: 0 4px 16px rgba(72, 187, 120, 0.2);
+  background: var(--success-soft);
+  color: var(--success-text);
+  border-color: var(--success);
+  box-shadow: none;
 }
 
 .message.error {
-  background: linear-gradient(135deg,
-    rgba(245, 101, 101, 0.15) 0%,
-    rgba(244, 63, 94, 0.15) 100%);
-  color: #dc2626;
-  box-shadow: 0 4px 16px rgba(245, 101, 101, 0.2);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border-color: var(--danger);
+  box-shadow: none;
 }
 
 /* Loading Spinner */
 .spinner {
   width: 48px;
   height: 48px;
-  border: 4px solid rgba(236, 72, 153, 0.1);
-  border-top-color: #ec4899;
+  border: 4px solid var(--surface-sunken);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const multer = require('multer');
 const sharp = require('sharp');
 const { join } = require('path');
@@ -206,6 +207,25 @@ router.post('/',
     }
 
     try {
+      // Content-hash dedupe: fingerprint the raw bytes BEFORE any Sharp work so
+      // an accidental re-upload of the same file into the same folder costs one
+      // indexed lookup instead of a full re-encode + duplicate S3 object + row.
+      // Hashing is cheap (~hundreds of MB/s) relative to the encode it can skip.
+      const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+      const existing = await Image.findOne({ folder: req.folder._id, hash })
+        .populate('uploadedBy', 'username email')
+        .populate('folder', 'name');
+
+      if (existing) {
+        console.log(`[ImageUpload] Duplicate skipped (folder ${req.folder._id}): ${req.file.originalname}`);
+        return res.status(200).json({
+          message: 'Image already exists in this folder',
+          duplicate: true,
+          image: existing
+        });
+      }
+
       console.log(`[ImageUpload] Queuing image: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`);
 
       // Queue the image processing to prevent memory exhaustion
@@ -341,6 +361,7 @@ router.post('/',
         thumbnailWidth,
         thumbnailHeight,
         renditions: renditionRecords,
+        hash,
         folder: req.folder._id,
         uploadedBy: req.user._id,
         processingStatus: 'completed' // Thumbnail generated synchronously
@@ -387,6 +408,16 @@ router.post('/bulk',
 
       for (const file of req.files) {
         try {
+          // Folder-scoped dedupe (same fingerprint as the single-upload path):
+          // skip identical re-uploads before doing any Sharp/S3 work.
+          const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+          const duplicate = await Image.findOne({ folder: req.folder._id, hash }).lean();
+          if (duplicate) {
+            console.log(`[BulkUpload] ${uploadId}: Duplicate skipped ${file.originalname}`);
+            results.push({ success: true, duplicate: true, filename: file.originalname });
+            continue;
+          }
+
           // Get original file extension
           const originalExt = file.originalname.split('.').pop().toLowerCase();
           const originalFilename = generateFilename(originalExt);
@@ -453,6 +484,7 @@ router.post('/bulk',
             originalFilename,
             originalUrl,
             originalSize: file.size,
+            hash,
             folder: req.folder._id,
             uploadedBy: req.user._id,
             size: compressedBuffer.length,
@@ -474,38 +506,76 @@ router.post('/bulk',
   }
 );
 
-// Get images in a folder (with pagination)
+// Encode/decode an opaque keyset cursor. The cursor is just the sort key of the
+// last row returned — (uploadDate, _id) — base64'd so the client treats it as
+// a black box. No PII, but base64 keeps it tidy and forward-compatible.
+const encodeCursor = (img) =>
+  Buffer.from(`${new Date(img.uploadDate).getTime()}_${img._id}`, 'utf8').toString('base64url');
+
+const decodeCursor = (raw) => {
+  try {
+    const [ts, id] = Buffer.from(String(raw), 'base64url').toString('utf8').split('_');
+    const date = new Date(Number(ts));
+    if (Number.isNaN(date.getTime()) || !id) return null;
+    return { date, id };
+  } catch {
+    return null;
+  }
+};
+
+// Get images in a folder — keyset (cursor) pagination.
+//
+// Why not skip()? Offset pagination rescans and discards `skip` docs on every
+// page, so deep pages on a large folder degrade badly (O(skip)). A keyset cursor
+// on the {folder, uploadDate:-1, _id:-1} index walks straight to the boundary
+// and reads only `limit` rows — flat cost regardless of how deep you scroll.
+//
+// Query string:
+//   ?limit=100            page size (capped at 200)
+//   ?cursor=<token>       omit for the first page; pass `nextCursor` for the rest
+// Back-compat: a legacy ?page= request (no cursor) still returns the first page.
 router.get('/folder/:folderId', checkFolderAccess('read'), async (req, res) => {
   try {
-    // Pagination parameters
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50; // Default 50 images per page
-    const skip = (page - 1) * limit;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const cursor = req.query.cursor ? decodeCursor(req.query.cursor) : null;
 
-    console.log(`[GetImages] Fetching page ${page}, limit ${limit}, skip ${skip}`);
+    // Stable newest-first ordering. _id is the unique tiebreaker that makes the
+    // cursor deterministic when several images share an uploadDate.
+    const filter = { folder: req.folder._id };
+    if (cursor) {
+      // Everything strictly "after" the last row in (uploadDate desc, _id desc).
+      filter.$or = [
+        { uploadDate: { $lt: cursor.date } },
+        { uploadDate: cursor.date, _id: { $lt: cursor.id } }
+      ];
+    }
 
-    // Get total count first
-    const totalCount = await Image.countDocuments({ folder: req.folder._id });
+    console.log(`[GetImages] folder=${req.folder._id} limit=${limit} cursor=${req.query.cursor || 'none'}`);
 
-    // Fetch images with pagination. .lean() skips Mongoose document hydration
-    // (40-60% faster reads, ~80% less memory on large lists); the result is
-    // already a plain object so we drop the per-image .toObject() call below.
-    const images = await Image.find({ folder: req.folder._id })
+    // Fetch limit+1 to know whether another page exists without a second query.
+    // .lean() skips Mongoose hydration (faster reads, less memory); already a
+    // plain object so no per-image .toObject() needed.
+    const rows = await Image.find(filter)
       .populate('uploadedBy', 'username email')
       .populate('folder', 'name')
-      .sort({ uploadDate: -1 })
-      .skip(skip)
-      .limit(limit)
+      .sort({ uploadDate: -1, _id: -1 })
+      .limit(limit + 1)
       .lean();
 
-    // Add isFavorited flag for current user and ensure absolute URLs
+    const hasMore = rows.length > limit;
+    const images = hasMore ? rows.slice(0, limit) : rows;
+
+    // Add isFavorited flag for current user and ensure absolute URLs. Note: we
+    // intentionally keep the DB's stable date ordering here rather than hoisting
+    // favorites to the top — a per-page favorites-first sort is inconsistent once
+    // results span multiple infinite-scroll pages. The star flag still drives the
+    // UI; global "favorites first" belongs to the dedicated favorites filter.
     const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
     const imagesWithFavorites = images.map(imgObj => {
       imgObj.isFavorited = (imgObj.favoritedBy || []).some(
         userId => userId.toString() === req.user._id.toString()
       );
 
-      // Convert relative URLs to absolute
       if (imgObj.url && imgObj.url.startsWith('/uploads/')) {
         imgObj.url = `${backendUrl}${imgObj.url}`;
       }
@@ -513,22 +583,19 @@ router.get('/folder/:folderId', checkFolderAccess('read'), async (req, res) => {
       return imgObj;
     });
 
-    // Sort: favorites first, then by upload date
-    imagesWithFavorites.sort((a, b) => {
-      if (a.isFavorited && !b.isFavorited) return -1;
-      if (!a.isFavorited && b.isFavorited) return 1;
-      return new Date(b.uploadDate) - new Date(a.uploadDate);
-    });
+    // Total is only needed for the header count; compute it once (first page) so
+    // subsequent infinite-scroll fetches don't pay for a countDocuments scan.
+    const total = cursor
+      ? undefined
+      : await Image.countDocuments({ folder: req.folder._id });
 
-    // Return paginated response with metadata
     res.json({
       images: imagesWithFavorites,
       pagination: {
-        page,
         limit,
-        total: totalCount,
-        totalPages: Math.ceil(totalCount / limit),
-        hasMore: skip + images.length < totalCount
+        ...(total !== undefined && { total }),
+        hasMore,
+        nextCursor: hasMore ? encodeCursor(images[images.length - 1]) : null
       }
     });
   } catch (error) {

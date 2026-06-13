@@ -19,7 +19,7 @@
 }
 
 .welcome-card > p {
-  color: #64748b;
+  color: #6f665b;
   font-size: 1.15rem;
   margin-bottom: 3.5rem;
   font-weight: 300;
@@ -36,29 +36,29 @@
   padding: 2.5rem 2rem;
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.7) 0%,
-    rgba(249, 240, 255, 0.6) 100%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+    rgba(250, 246, 239, 0.6) 100%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-radius: 28px;
-  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.1);
+  box-shadow: 0 8px 24px rgba(194, 96, 58, 0.1);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .feature:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(236, 72, 153, 0.12);
+  box-shadow: 0 12px 32px rgba(194, 96, 58, 0.12);
 }
 
 .feature h3 {
   margin-bottom: 0.75rem;
   font-size: 1.2rem;
   font-weight: 500;
-  color: #64748b;
+  color: #6f665b;
 }
 
 .feature p {
   font-size: 0.9rem;
-  color: #94a3b8;
+  color: #8a8175;
   line-height: 1.6;
   font-weight: 300;
 }

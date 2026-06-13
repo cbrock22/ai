@@ -33,14 +33,14 @@
 .folder-access-header h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: #333;
+  color: #2a2724;
 }
 
 .close-button {
   background: none;
   border: none;
   font-size: 2rem;
-  color: #666;
+  color: #6f665b;
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -53,7 +53,7 @@
 }
 
 .close-button:hover {
-  background-color: #f0f0f0;
+  background-color: #faf6ef;
 }
 
 .folder-access-content {
@@ -69,7 +69,7 @@
 .access-section h3 {
   margin: 0 0 16px 0;
   font-size: 1.1rem;
-  color: #555;
+  color: #6f665b;
 }
 
 .access-item {
@@ -77,13 +77,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: #f8f8f8;
+  background: #faf6ef;
   border-radius: 8px;
   margin-bottom: 8px;
 }
 
 .owner-item {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #c2603a 0%, #c2603a 100%);
   color: white;
 }
 
@@ -105,7 +105,7 @@
 
 .user-email {
   font-size: 0.85rem;
-  color: #666;
+  color: #6f665b;
 }
 
 .access-controls {
@@ -145,14 +145,14 @@
 }
 
 .access-select {
-  border: 2px solid #ddd;
+  border: 2px solid #e7e0d5;
   background: white;
   cursor: pointer;
   transition: border-color 0.2s;
 }
 
 .access-select:hover:not(:disabled) {
-  border-color: #667eea;
+  border-color: #c2603a;
 }
 
 .access-select:disabled {
@@ -198,7 +198,7 @@
 
 .no-permissions,
 .no-users {
-  color: #999;
+  color: #8a8175;
   font-style: italic;
   text-align: center;
   padding: 16px;
@@ -221,7 +221,7 @@
   flex: 1;
   min-width: 200px;
   padding: 10px 12px;
-  border: 2px solid #ddd;
+  border: 2px solid #e7e0d5;
   border-radius: 6px;
   font-size: 0.95rem;
   background: white;
@@ -231,19 +231,19 @@
 
 .user-select:hover:not(:disabled),
 .access-level-select:hover:not(:disabled) {
-  border-color: #667eea;
+  border-color: #c2603a;
 }
 
 .user-select:focus,
 .access-level-select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #c2603a;
+  box-shadow: 0 0 0 3px rgba(194, 96, 58, 0.1);
 }
 
 .add-button {
   padding: 10px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #c2603a 0%, #c2603a 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -255,7 +255,7 @@
 
 .add-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(194, 96, 58, 0.4);
 }
 
 .add-button:disabled {
@@ -278,7 +278,7 @@
 
 .access-descriptions li {
   margin-bottom: 8px;
-  color: #555;
+  color: #6f665b;
   line-height: 1.6;
 }
 
@@ -297,7 +297,7 @@
   background: #f0f9ff;
   padding: 20px;
   border-radius: 8px;
-  border-left: 4px solid #3b82f6;
+  border-left: 4px solid #c2603a;
 }
 
 .settings-form {
@@ -324,12 +324,12 @@
   width: 20px;
   height: 20px;
   cursor: pointer;
-  accent-color: #667eea;
+  accent-color: #c2603a;
 }
 
 .checkbox-label span {
   font-weight: 600;
-  color: #333;
+  color: #2a2724;
   font-size: 0.95rem;
 }
 
@@ -337,13 +337,13 @@
   margin: 0;
   padding-left: 30px;
   font-size: 0.85rem;
-  color: #666;
+  color: #6f665b;
   line-height: 1.5;
 }
 
 .save-settings-button {
   padding: 10px 24px;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #c2603a 0%, #1d4ed8 100%);
   color: white;
   border: none;
   border-radius: 6px;
@@ -356,7 +356,7 @@
 
 .save-settings-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 12px rgba(194, 96, 58, 0.4);
 }
 
 .save-settings-button:disabled {

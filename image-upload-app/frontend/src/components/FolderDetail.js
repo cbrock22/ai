@@ -23,7 +23,7 @@ const FolderDetail = () => {
   const [filterFavorites, setFilterFavorites] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedImages, setSelectedImages] = useState(new Set());
-  const [page, setPage] = useState(1);
+  const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [totalImages, setTotalImages] = useState(0);
   const { user } = useAuth();
@@ -49,7 +49,9 @@ const FolderDetail = () => {
     }
   }, [apiUrl, folderId, token]);
 
-  const fetchImages = useCallback(async (pageNum = 1, append = false) => {
+  // Keyset pagination: pass the opaque `cursor` from the previous page to fetch
+  // the next slice. Omitting it (append=false) loads the first page fresh.
+  const fetchImages = useCallback(async (cursorToken = null, append = false) => {
     try {
       if (append) {
         setLoadingMore(true);
@@ -57,7 +59,10 @@ const FolderDetail = () => {
         setLoading(true);
       }
 
-      const response = await fetch(`${apiUrl}/api/images/folder/${folderId}?page=${pageNum}&limit=100`, {
+      const params = new URLSearchParams({ limit: '100' });
+      if (cursorToken) params.set('cursor', cursorToken);
+
+      const response = await fetch(`${apiUrl}/api/images/folder/${folderId}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
@@ -77,13 +82,17 @@ const FolderDetail = () => {
 
         // Set pagination metadata
         if (data.pagination) {
-          setTotalImages(data.pagination.total);
+          // total only comes back on the first page; keep the prior count on appends
+          if (typeof data.pagination.total === 'number') {
+            setTotalImages(data.pagination.total);
+          }
           setHasMore(data.pagination.hasMore);
-          setPage(data.pagination.page);
+          setCursor(data.pagination.nextCursor);
         } else {
           // Fallback for non-paginated response
           setTotalImages(imageArray.length);
           setHasMore(false);
+          setCursor(null);
         }
 
         setError('');
@@ -121,7 +130,7 @@ const FolderDetail = () => {
 
   useEffect(() => {
     fetchFolder();
-    fetchImages(1, false);
+    fetchImages(null, false);
   }, [fetchFolder, folderId, token, apiUrl]); // Don't include fetchImages to avoid infinite loop
 
   useEffect(() => {
@@ -129,11 +138,10 @@ const FolderDetail = () => {
   }, [filterAndSortImages]);
 
   const loadMore = useCallback(() => {
-    if (hasMore && !loadingMore && !loading) {
-      const nextPage = page + 1;
-      fetchImages(nextPage, true);
+    if (hasMore && !loadingMore && !loading && cursor) {
+      fetchImages(cursor, true);
     }
-  }, [hasMore, loadingMore, loading, page, fetchImages]);
+  }, [hasMore, loadingMore, loading, cursor, fetchImages]);
 
   // Infinite scroll with IntersectionObserver
   const { ref: loadMoreRef, inView } = useInView({

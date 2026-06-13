@@ -17,7 +17,7 @@
 
 .gallery-subtitle {
   font-size: 1.1rem;
-  color: #666;
+  color: #6f665b;
   font-weight: 300;
 }
 
@@ -29,7 +29,7 @@
 
 .public-folder-section {
   background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(10px);
+  backdrop-filter: none;
   border-radius: 20px;
   padding: 2rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
@@ -47,7 +47,7 @@
 .folder-title {
   font-size: 1.8rem;
   font-weight: 600;
-  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #06b6d4 100%);
+  background: linear-gradient(135deg, #c2603a 0%, #c2603a 50%, #c2603a 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -56,7 +56,7 @@
 
 .folder-meta {
   font-size: 0.95rem;
-  color: #666;
+  color: #6f665b;
   margin: 0;
 }
 
@@ -134,7 +134,7 @@
 .empty-folder-preview {
   text-align: center;
   padding: 3rem;
-  color: #999;
+  color: #8a8175;
   font-style: italic;
 }
 
@@ -195,7 +195,7 @@
 }
 
 .close-btn-desktop:hover {
-  background: #f0f0f0;
+  background: #faf6ef;
   transform: translateX(-50%) scale(1.05);
 }
 
@@ -208,8 +208,8 @@
   height: 40px;
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   color: white;
   opacity: 0.7;
 }
