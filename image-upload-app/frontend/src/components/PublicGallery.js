@@ -88,7 +88,7 @@ const PublicGallery = () => {
         </div>
       ) : (
         <div className="public-gallery-folders">
-          {folders.map((folder) => (
+          {folders.map((folder, folderIdx) => (
             <div key={folder._id} className="public-folder-section">
               <div className="public-folder-header">
                 <div>
@@ -117,8 +117,9 @@ const PublicGallery = () => {
                         <img
                           src={image.thumbnailUrl || image.url}
                           alt={image.filename}
-                          loading="lazy"
+                          loading={folderIdx === 0 && idx < 6 ? 'eager' : 'lazy'}
                           decoding="async"
+                          {...(folderIdx === 0 && idx === 0 ? { fetchpriority: 'high' } : {})}
                         />
                         <div className="image-overlay">
                           <span>View</span>

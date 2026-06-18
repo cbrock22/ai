@@ -231,14 +231,15 @@ const PublicFolderView = () => {
       {/* Gallery Grid */}
       {folder.images && folder.images.length > 0 ? (
         <div className="public-gallery-grid">
-          {folder.images.map((image) => (
+          {folder.images.map((image, i) => (
             <div key={image._id} className="public-gallery-item">
               <div className="image-container" onClick={() => openLightbox(image)}>
                 <img
                   src={image.thumbnailUrl || image.url}
                   alt={image.originalName || image.filename}
-                  loading="lazy"
+                  loading={i < 6 ? 'eager' : 'lazy'}
                   decoding="async"
+                  {...(i === 0 ? { fetchpriority: 'high' } : {})}
                 />
                 <div className="image-overlay">
                   <span>View</span>

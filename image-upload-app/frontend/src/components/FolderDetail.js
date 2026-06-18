@@ -12,6 +12,10 @@ const FAVORITE_PATH = 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 
 const DOWNLOAD_PATH = 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4';
 const DELETE_PATH = 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16';
 
+// Leading tiles that load eagerly (no IntersectionObserver gate) — roughly the
+// first one or two above-the-fold rows. Tile 0 also gets fetchpriority="high".
+const EAGER_COUNT = 6;
+
 /**
  * One gallery tile. Module-scoped + React.memo so a state change in the parent
  * (scroll/load-more, selecting a different image, opening the lightbox) only
@@ -19,7 +23,7 @@ const DELETE_PATH = 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1
  * callbacks it receives are stabilised with useCallback in the parent.
  */
 const ImageCard = React.memo(function ImageCard({
-  image, selectionMode, isSelected, canDelete,
+  image, selectionMode, isSelected, canDelete, eager = false, priority = false,
   onOpen, onToggleSelect, onToggleFavorite, onDownload, onDelete
 }) {
   const name = image.originalName || image.filename;
@@ -41,6 +45,8 @@ const ImageCard = React.memo(function ImageCard({
         onClick={() => (selectionMode ? onToggleSelect(image._id) : onOpen(image))}
         selectionMode={selectionMode}
         isSelected={isSelected}
+        eager={eager}
+        priority={priority}
       />
       <div className="image-meta">
         <div className="image-name">{name}</div>
@@ -598,13 +604,15 @@ const FolderDetail = () => {
           </div>
 
           <div className="images-grid">
-            {filteredImages.map((image) => (
+            {filteredImages.map((image, i) => (
               <ImageCard
                 key={image._id}
                 image={image}
                 selectionMode={selectionMode}
                 isSelected={selectedImages.has(image._id)}
                 canDelete={canDelete}
+                eager={i < EAGER_COUNT}
+                priority={i === 0}
                 onOpen={openLightbox}
                 onToggleSelect={toggleImageSelection}
                 onToggleFavorite={toggleFavorite}
