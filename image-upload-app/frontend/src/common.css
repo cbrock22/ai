@@ -1,5 +1,15 @@
 /* Shared styles to reduce redundancy across components */
 
+/* Container-query context for photo grids.
+   Wrapping a grid in .cq-grid lets its columns respond to the grid's own
+   available width (sidebar, narrow column, etc.) instead of only the viewport.
+   Container queries are Baseline Widely Available (2024); browsers without
+   support simply fall back to the grid's default auto-fill template. */
+.cq-grid {
+  container-type: inline-size;
+  container-name: photogrid;
+}
+
 /* Soft Card Style — flat warm surface */
 .soft-card {
   background: var(--surface);
@@ -7,9 +17,10 @@
   border: 1px solid var(--border);
   box-shadow: var(--shadow-md);
   padding: 3rem;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.3s ease;
+  transition:
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s ease;
 }
 
 .soft-card:hover {

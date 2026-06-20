@@ -8,9 +8,11 @@ import { buildPictureSources } from '../utils/imageSources';
 import '../common.css';
 import './Gallery.css';
 
-const FAVORITE_PATH = 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z';
+const FAVORITE_PATH =
+  'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z';
 const DOWNLOAD_PATH = 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4';
-const DELETE_PATH = 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16';
+const DELETE_PATH =
+  'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16';
 
 // How many leading tiles in a grid load eagerly (no IntersectionObserver gate),
 // roughly the first one or two above-the-fold rows. The very first tile (index 0)
@@ -26,9 +28,19 @@ const EAGER_COUNT = 6;
  * names the folder).
  */
 const GalleryCard = React.memo(function GalleryCard({
-  image, isAdminView, selectionMode, isSelected, canDelete, showFolder = true,
-  eager = false, priority = false,
-  onOpen, onToggleSelect, onToggleFavorite, onDownload, onDelete
+  image,
+  isAdminView,
+  selectionMode,
+  isSelected,
+  canDelete,
+  showFolder = true,
+  eager = false,
+  priority = false,
+  onOpen,
+  onToggleSelect,
+  onToggleFavorite,
+  onDownload,
+  onDelete,
 }) {
   const name = image.originalName || image.filename;
   return (
@@ -61,16 +73,26 @@ const GalleryCard = React.memo(function GalleryCard({
       <div className="image-actions">
         <button
           className={`btn-favorite ${image.isFavorited ? 'favorited' : ''}`}
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(image._id, image.isFavorited); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(image._id, image.isFavorited);
+          }}
           title={image.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <svg fill={image.isFavorited ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            fill={image.isFavorited ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={FAVORITE_PATH} />
           </svg>
         </button>
         <button
           className="btn-download"
-          onClick={(e) => { e.stopPropagation(); onDownload(image._id, name); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDownload(image._id, name);
+          }}
           title="Download original image"
         >
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,7 +102,10 @@ const GalleryCard = React.memo(function GalleryCard({
         {canDelete && (
           <button
             className="btn-delete"
-            onClick={(e) => { e.stopPropagation(); onDelete(image._id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(image._id);
+            }}
             title="Delete image"
           >
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,8 +153,8 @@ const Gallery = () => {
     const handle = setTimeout(async () => {
       try {
         const response = await fetch(`${apiUrl}/api/images?q=${encodeURIComponent(q)}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-          credentials: 'include'
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         });
         const data = await response.json();
         setSearchResults(response.ok && Array.isArray(data) ? data : []);
@@ -148,9 +173,9 @@ const Gallery = () => {
       try {
         const response = await fetch(`${apiUrl}/api/folders`, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
-          credentials: 'include'
+          credentials: 'include',
         });
 
         if (response.ok) {
@@ -158,7 +183,7 @@ const Gallery = () => {
           setFolders(data);
           // Update current folder when folders are fetched
           if (selectedFolder !== 'all') {
-            const folder = data.find(f => f._id === selectedFolder);
+            const folder = data.find((f) => f._id === selectedFolder);
             setCurrentFolder(folder);
           }
         }
@@ -170,57 +195,60 @@ const Gallery = () => {
     fetchFolders();
   }, [token, apiUrl, selectedFolder]);
 
-  const fetchImages = useCallback(async (pageNum = 1, append = false) => {
-    try {
-      if (append) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-      }
-
-      let url = `${apiUrl}/api/images`;
-
-      // If a specific folder is selected, fetch only that folder's images with pagination
-      if (selectedFolder !== 'all') {
-        url = `${apiUrl}/api/images/folder/${selectedFolder}?page=${pageNum}&limit=50`;
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        credentials: 'include'
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        // Handle paginated response (specific folder)
-        if (data.images && data.pagination) {
-          if (append) {
-            setImages(prev => [...prev, ...data.images]);
-          } else {
-            setImages(data.images);
-          }
-          setHasMore(data.pagination.hasMore);
-          setTotalImages(data.pagination.total);
-          setPage(data.pagination.page);
+  const fetchImages = useCallback(
+    async (pageNum = 1, append = false) => {
+      try {
+        if (append) {
+          setLoadingMore(true);
         } else {
-          // Handle non-paginated response (all images)
-          setImages(data);
-          setHasMore(false);
-          setTotalImages(data.length);
+          setLoading(true);
         }
-        setError('');
-      } else {
-        setError(data.error || 'Failed to fetch images');
+
+        let url = `${apiUrl}/api/images`;
+
+        // If a specific folder is selected, fetch only that folder's images with pagination
+        if (selectedFolder !== 'all') {
+          url = `${apiUrl}/api/images/folder/${selectedFolder}?page=${pageNum}&limit=50`;
+        }
+
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          // Handle paginated response (specific folder)
+          if (data.images && data.pagination) {
+            if (append) {
+              setImages((prev) => [...prev, ...data.images]);
+            } else {
+              setImages(data.images);
+            }
+            setHasMore(data.pagination.hasMore);
+            setTotalImages(data.pagination.total);
+            setPage(data.pagination.page);
+          } else {
+            // Handle non-paginated response (all images)
+            setImages(data);
+            setHasMore(false);
+            setTotalImages(data.length);
+          }
+          setError('');
+        } else {
+          setError(data.error || 'Failed to fetch images');
+        }
+      } catch (err) {
+        setError('Failed to connect to server');
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
-    } catch (err) {
-      setError('Failed to connect to server');
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [token, selectedFolder, apiUrl]);
+    },
+    [token, selectedFolder, apiUrl]
+  );
 
   // Reset pagination when folder changes
   useEffect(() => {
@@ -240,7 +268,7 @@ const Gallery = () => {
   // Infinite scroll with IntersectionObserver
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
-    rootMargin: '400px' // Start loading 400px before reaching the bottom
+    rootMargin: '400px', // Start loading 400px before reaching the bottom
   });
 
   useEffect(() => {
@@ -256,106 +284,130 @@ const Gallery = () => {
     };
   }, []);
 
-  const toggleFavorite = useCallback(async (imageId, currentStatus) => {
-    try {
-      const response = await fetch(`${apiUrl}/api/images/${imageId}/favorite`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        credentials: 'include'
-      });
+  const toggleFavorite = useCallback(
+    async (imageId, currentStatus) => {
+      try {
+        const response = await fetch(`${apiUrl}/api/images/${imageId}/favorite`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+        });
 
-      if (response.ok) {
-        // Update local state (both the normal grid and any active search view)
-        const apply = list => list.map(img =>
-          img._id === imageId ? { ...img, isFavorited: !currentStatus } : img
-        );
-        setImages(prev => apply(prev));
-        setSearchResults(prev => (prev ? apply(prev) : prev));
-      } else {
+        if (response.ok) {
+          // Update local state (both the normal grid and any active search view)
+          const apply = (list) =>
+            list.map((img) =>
+              img._id === imageId ? { ...img, isFavorited: !currentStatus } : img
+            );
+          setImages((prev) => apply(prev));
+          setSearchResults((prev) => (prev ? apply(prev) : prev));
+        } else {
+          alert('Failed to update favorite status');
+        }
+      } catch (err) {
         alert('Failed to update favorite status');
       }
-    } catch (err) {
-      alert('Failed to update favorite status');
-    }
-  }, [apiUrl, token]);
+    },
+    [apiUrl, token]
+  );
 
-  const handleDelete = useCallback(async (imageId) => {
-    if (!window.confirm('Are you sure you want to delete this image?')) return;
+  const handleDelete = useCallback(
+    async (imageId) => {
+      if (!window.confirm('Are you sure you want to delete this image?')) return;
 
-    try {
-      const response = await fetch(`${apiUrl}/api/images/${imageId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        credentials: 'include'
-      });
+      try {
+        const response = await fetch(`${apiUrl}/api/images/${imageId}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: 'include',
+        });
 
-      if (response.ok) {
-        setImages(prev => prev.filter(img => img._id !== imageId));
-        setSearchResults(prev => (prev ? prev.filter(img => img._id !== imageId) : prev));
-        // Functional update => callback stays independent of selectedImage, so
-        // its identity is stable across lightbox open/close (grid cards don't churn).
-        setSelectedImage(prev => (prev?._id === imageId ? null : prev));
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Failed to delete image');
+        if (response.ok) {
+          setImages((prev) => prev.filter((img) => img._id !== imageId));
+          setSearchResults((prev) => (prev ? prev.filter((img) => img._id !== imageId) : prev));
+          // Functional update => callback stays independent of selectedImage, so
+          // its identity is stable across lightbox open/close (grid cards don't churn).
+          setSelectedImage((prev) => (prev?._id === imageId ? null : prev));
+        } else {
+          const data = await response.json();
+          alert(data.error || 'Failed to delete image');
+        }
+      } catch (err) {
+        alert('Failed to delete image');
       }
-    } catch (err) {
-      alert('Failed to delete image');
-    }
-  }, [token, apiUrl]);
+    },
+    [token, apiUrl]
+  );
 
-  const handleDownload = useCallback(async (imageId, imageName) => {
-    await downloadImage(imageId, imageName);
-  }, [downloadImage]);
+  const handleDownload = useCallback(
+    async (imageId, imageName) => {
+      await downloadImage(imageId, imageName);
+    },
+    [downloadImage]
+  );
 
   // Persist a new tag list for an image and sync it across all local views.
-  const saveTags = useCallback(async (imageId, tags) => {
-    try {
-      const response = await fetch(`${apiUrl}/api/images/${imageId}/tags`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ tags })
-      });
+  const saveTags = useCallback(
+    async (imageId, tags) => {
+      try {
+        const response = await fetch(`${apiUrl}/api/images/${imageId}/tags`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ tags }),
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        const apply = list => list.map(img =>
-          img._id === imageId ? { ...img, tags: data.tags } : img
-        );
-        setImages(prev => apply(prev));
-        setSearchResults(prev => (prev ? apply(prev) : prev));
-        setSelectedImage(prev =>
-          prev && prev._id === imageId ? { ...prev, tags: data.tags } : prev
-        );
-      } else {
+        if (response.ok) {
+          const data = await response.json();
+          const apply = (list) =>
+            list.map((img) => (img._id === imageId ? { ...img, tags: data.tags } : img));
+          setImages((prev) => apply(prev));
+          setSearchResults((prev) => (prev ? apply(prev) : prev));
+          setSelectedImage((prev) =>
+            prev && prev._id === imageId ? { ...prev, tags: data.tags } : prev
+          );
+        } else {
+          alert('Failed to update tags');
+        }
+      } catch (err) {
         alert('Failed to update tags');
       }
-    } catch (err) {
-      alert('Failed to update tags');
-    }
-  }, [apiUrl, token]);
+    },
+    [apiUrl, token]
+  );
 
-  const addTag = useCallback((image, raw) => {
-    const tag = (raw || '').trim().toLowerCase();
-    if (!tag) return;
-    const current = image.tags || [];
-    if (current.includes(tag)) { setTagDraft(''); return; }
-    saveTags(image._id, [...current, tag]);
-    setTagDraft('');
-  }, [saveTags]);
+  const addTag = useCallback(
+    (image, raw) => {
+      const tag = (raw || '').trim().toLowerCase();
+      if (!tag) return;
+      const current = image.tags || [];
+      if (current.includes(tag)) {
+        setTagDraft('');
+        return;
+      }
+      saveTags(image._id, [...current, tag]);
+      setTagDraft('');
+    },
+    [saveTags]
+  );
 
-  const removeTag = useCallback((image, tag) => {
-    const current = image.tags || [];
-    saveTags(image._id, current.filter(t => t !== tag));
-  }, [saveTags]);
+  const removeTag = useCallback(
+    (image, tag) => {
+      const current = image.tags || [];
+      saveTags(
+        image._id,
+        current.filter((t) => t !== tag)
+      );
+    },
+    [saveTags]
+  );
 
   const openLightbox = useCallback((image) => {
     setSelectedImage(image);
@@ -376,12 +428,12 @@ const Gallery = () => {
   }, [user, selectedFolder, currentFolder]);
 
   const toggleSelectionMode = useCallback(() => {
-    setSelectionMode(prev => !prev);
+    setSelectionMode((prev) => !prev);
     setSelectedImages(new Set());
   }, []);
 
   const toggleImageSelection = useCallback((imageId) => {
-    setSelectedImages(prev => {
+    setSelectedImages((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(imageId)) {
         newSet.delete(imageId);
@@ -393,7 +445,7 @@ const Gallery = () => {
   }, []);
 
   const selectAll = useCallback(() => {
-    setSelectedImages(new Set(images.map(img => img._id)));
+    setSelectedImages(new Set(images.map((img) => img._id)));
   }, [images]);
 
   const deselectAll = useCallback(() => {
@@ -404,11 +456,14 @@ const Gallery = () => {
     if (selectedImages.size === 0) return;
 
     // Check if iOS - iOS doesn't support bulk downloads well
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     if (isIOS && selectedImages.size > 1) {
-      alert('Bulk download is not supported on iOS. Please download images one at a time or use a desktop browser.');
+      alert(
+        'Bulk download is not supported on iOS. Please download images one at a time or use a desktop browser.'
+      );
       return;
     }
 
@@ -418,7 +473,7 @@ const Gallery = () => {
 
     for (const imageId of imagesToDownload) {
       try {
-        const image = images.find(img => img._id === imageId);
+        const image = images.find((img) => img._id === imageId);
         if (!image) continue;
 
         const success = await downloadImage(imageId, image.originalName || image.filename);
@@ -430,7 +485,7 @@ const Gallery = () => {
         }
 
         // Add delay between downloads to prevent browser blocking
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (err) {
         console.error('Bulk download error:', err);
         failCount++;
@@ -459,9 +514,9 @@ const Gallery = () => {
         const response = await fetch(`${apiUrl}/api/images/${imageId}`, {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
-          credentials: 'include'
+          credentials: 'include',
         });
 
         if (response.ok) {
@@ -483,7 +538,7 @@ const Gallery = () => {
   // Group images by folder
   const imagesByFolder = useMemo(() => {
     const grouped = {};
-    images.forEach(image => {
+    images.forEach((image) => {
       const folderId = image.folder?._id || 'unknown';
       const folderName = image.folder?.name || 'Unknown Folder';
 
@@ -491,7 +546,7 @@ const Gallery = () => {
         grouped[folderId] = {
           id: folderId,
           name: folderName,
-          images: []
+          images: [],
         };
       }
       grouped[folderId].images.push(image);
@@ -548,7 +603,7 @@ const Gallery = () => {
               className="folder-dropdown"
             >
               <option value="all">All Folders</option>
-              {folders.map(folder => (
+              {folders.map((folder) => (
                 <option key={folder._id} value={folder._id}>
                   {folder.name} {folder.isPublic ? '(Public)' : '(Private)'}
                 </option>
@@ -560,7 +615,12 @@ const Gallery = () => {
             onClick={toggleSelectionMode}
           >
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+              />
             </svg>
             {selectionMode ? 'Cancel' : 'Select'}
           </button>
@@ -592,7 +652,12 @@ const Gallery = () => {
               disabled={selectedImages.size === 0}
             >
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
               </svg>
               Download Selected
             </button>
@@ -603,7 +668,12 @@ const Gallery = () => {
                 disabled={selectedImages.size === 0}
               >
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
                 </svg>
                 Delete Selected
               </button>
@@ -618,34 +688,36 @@ const Gallery = () => {
             <p>
               {searching
                 ? 'Searching…'
-                : `${searchResults ? searchResults.length : 0} result${(searchResults && searchResults.length === 1) ? '' : 's'} for “${searchQuery.trim()}”`}
+                : `${searchResults ? searchResults.length : 0} result${searchResults && searchResults.length === 1 ? '' : 's'} for “${searchQuery.trim()}”`}
             </p>
           </div>
-          {(!searching && searchResults && searchResults.length === 0) ? (
+          {!searching && searchResults && searchResults.length === 0 ? (
             <div className="empty-state">
               <p>No images match “{searchQuery.trim()}”</p>
               <p className="empty-subtitle">Try a different name or tag.</p>
             </div>
           ) : (
-            <div className="gallery-grid">
-              {(searchResults || []).map((image, i) => (
-                <GalleryCard
-                  key={image._id}
-                  image={image}
-                  isAdminView={isAdminView}
-                  selectionMode={false}
-                  isSelected={false}
-                  canDelete={canDelete}
-                  eager={i < EAGER_COUNT}
-                  priority={i === 0}
-                  showFolder
-                  onOpen={openLightbox}
-                  onToggleSelect={toggleImageSelection}
-                  onToggleFavorite={toggleFavorite}
-                  onDownload={handleDownload}
-                  onDelete={handleDelete}
-                />
-              ))}
+            <div className="cq-grid">
+              <div className="gallery-grid">
+                {(searchResults || []).map((image, i) => (
+                  <GalleryCard
+                    key={image._id}
+                    image={image}
+                    isAdminView={isAdminView}
+                    selectionMode={false}
+                    isSelected={false}
+                    canDelete={canDelete}
+                    eager={i < EAGER_COUNT}
+                    priority={i === 0}
+                    showFolder
+                    onOpen={openLightbox}
+                    onToggleSelect={toggleImageSelection}
+                    onToggleFavorite={toggleFavorite}
+                    onDownload={handleDownload}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -657,7 +729,9 @@ const Gallery = () => {
       ) : (
         <>
           <div className="gallery-info">
-            <p>{images.length} {images.length === 1 ? 'image' : 'images'}</p>
+            <p>
+              {images.length} {images.length === 1 ? 'image' : 'images'}
+            </p>
           </div>
 
           {/* Show grouped by folder when viewing all folders */}
@@ -672,25 +746,27 @@ const Gallery = () => {
                     </span>
                   </div>
 
-                  <div className="gallery-grid">
-                    {folder.images.slice(0, 10).map((image, i) => (
-                      <GalleryCard
-                        key={image._id}
-                        image={image}
-                        isAdminView={isAdminView}
-                        selectionMode={selectionMode}
-                        isSelected={selectedImages.has(image._id)}
-                        canDelete={canDelete}
-                        eager={folderIdx === 0 && i < EAGER_COUNT}
-                        priority={folderIdx === 0 && i === 0}
-                        showFolder={false}
-                        onOpen={openLightbox}
-                        onToggleSelect={toggleImageSelection}
-                        onToggleFavorite={toggleFavorite}
-                        onDownload={handleDownload}
-                        onDelete={handleDelete}
-                      />
-                    ))}
+                  <div className="cq-grid">
+                    <div className="gallery-grid">
+                      {folder.images.slice(0, 10).map((image, i) => (
+                        <GalleryCard
+                          key={image._id}
+                          image={image}
+                          isAdminView={isAdminView}
+                          selectionMode={selectionMode}
+                          isSelected={selectedImages.has(image._id)}
+                          canDelete={canDelete}
+                          eager={folderIdx === 0 && i < EAGER_COUNT}
+                          priority={folderIdx === 0 && i === 0}
+                          showFolder={false}
+                          onOpen={openLightbox}
+                          onToggleSelect={toggleImageSelection}
+                          onToggleFavorite={toggleFavorite}
+                          onDownload={handleDownload}
+                          onDelete={handleDelete}
+                        />
+                      ))}
+                    </div>
                   </div>
 
                   {/* Show "View All" button if folder has more than 10 images */}
@@ -709,25 +785,27 @@ const Gallery = () => {
             </div>
           ) : (
             /* Show single grid when filtering by specific folder */
-            <div className="gallery-grid">
-              {images.map((image, i) => (
-                <GalleryCard
-                  key={image._id}
-                  image={image}
-                  isAdminView={isAdminView}
-                  selectionMode={selectionMode}
-                  isSelected={selectedImages.has(image._id)}
-                  canDelete={canDelete}
-                  eager={i < EAGER_COUNT}
-                  priority={i === 0}
-                  showFolder
-                  onOpen={openLightbox}
-                  onToggleSelect={toggleImageSelection}
-                  onToggleFavorite={toggleFavorite}
-                  onDownload={handleDownload}
-                  onDelete={handleDelete}
-                />
-              ))}
+            <div className="cq-grid">
+              <div className="gallery-grid">
+                {images.map((image, i) => (
+                  <GalleryCard
+                    key={image._id}
+                    image={image}
+                    isAdminView={isAdminView}
+                    selectionMode={selectionMode}
+                    isSelected={selectedImages.has(image._id)}
+                    canDelete={canDelete}
+                    eager={i < EAGER_COUNT}
+                    priority={i === 0}
+                    showFolder
+                    onOpen={openLightbox}
+                    onToggleSelect={toggleImageSelection}
+                    onToggleFavorite={toggleFavorite}
+                    onDownload={handleDownload}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
             </div>
           )}
 
@@ -753,7 +831,7 @@ const Gallery = () => {
                   onClick={loadMore}
                   style={{
                     padding: '0.875rem 2rem',
-                    fontSize: '1rem'
+                    fontSize: '1rem',
                   }}
                 >
                   Load More Images
@@ -761,9 +839,7 @@ const Gallery = () => {
               )}
 
               {!hasMore && images.length > 0 && (
-                <p style={{ color: 'var(--text-subtle)', fontSize: '0.9rem' }}>
-                  All images loaded
-                </p>
+                <p style={{ color: 'var(--text-subtle)', fontSize: '0.9rem' }}>All images loaded</p>
               )}
             </div>
           )}
@@ -775,7 +851,8 @@ const Gallery = () => {
           <>
             {(() => {
               const picture = buildPictureSources(selectedImage);
-              const fallback = (picture && picture.fallbackSrc) || selectedImage.originalUrl || selectedImage.url;
+              const fallback =
+                (picture && picture.fallbackSrc) || selectedImage.originalUrl || selectedImage.url;
               const imgEl = (
                 <img
                   src={fallback}
@@ -795,11 +872,17 @@ const Gallery = () => {
               );
             })()}
             <div className="lightbox-info">
-              <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
-              <p><strong>Folder:</strong> {selectedImage.folder?.name || 'Unknown'}</p>
+              <p>
+                <strong>File:</strong> {selectedImage.originalName || selectedImage.filename}
+              </p>
+              <p>
+                <strong>Folder:</strong> {selectedImage.folder?.name || 'Unknown'}
+              </p>
               {isAdminView && (
                 <>
-                  <p><strong>Uploaded by:</strong> {selectedImage.uploadedBy?.username || 'Unknown'}</p>
+                  <p>
+                    <strong>Uploaded by:</strong> {selectedImage.uploadedBy?.username || 'Unknown'}
+                  </p>
                   <p className="upload-date">
                     <strong>Date:</strong> {new Date(selectedImage.uploadDate).toLocaleString()}
                   </p>
@@ -807,9 +890,9 @@ const Gallery = () => {
               )}
             </div>
             <div className="lightbox-tags">
-              {(selectedImage.tags && selectedImage.tags.length > 0) && (
+              {selectedImage.tags && selectedImage.tags.length > 0 && (
                 <div className="tag-chips">
-                  {selectedImage.tags.map(tag => (
+                  {selectedImage.tags.map((tag) => (
                     <span key={tag} className="tag-chip">
                       {tag}
                       {canDelete && (
@@ -829,7 +912,10 @@ const Gallery = () => {
               {canDelete && (
                 <form
                   className="tag-add"
-                  onSubmit={(e) => { e.preventDefault(); addTag(selectedImage, tagDraft); }}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    addTag(selectedImage, tagDraft);
+                  }}
                 >
                   <input
                     type="text"
@@ -849,10 +935,20 @@ const Gallery = () => {
             <div className="lightbox-actions">
               <button
                 className="btn btn-primary"
-                onClick={() => handleDownload(selectedImage._id, selectedImage.originalName || selectedImage.filename)}
+                onClick={() =>
+                  handleDownload(
+                    selectedImage._id,
+                    selectedImage.originalName || selectedImage.filename
+                  )
+                }
               >
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
                 </svg>
                 Download
               </button>
@@ -865,7 +961,12 @@ const Gallery = () => {
                   }}
                 >
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
                   </svg>
                   Delete
                 </button>
@@ -876,6 +977,6 @@ const Gallery = () => {
       </Lightbox>
     </div>
   );
-}
+};
 
 export default Gallery;

@@ -20,7 +20,7 @@ const PublicGallery = () => {
     try {
       setLoading(true);
       const response = await fetch(`${apiUrl}/api/folders/public-gallery`, {
-        credentials: 'include'
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -94,7 +94,8 @@ const PublicGallery = () => {
                 <div>
                   <h2 className="folder-title">{folder.name}</h2>
                   <p className="folder-meta">
-                    By {folder.owner?.username || 'Unknown'} • {folder.imageCount || 0} {folder.imageCount === 1 ? 'image' : 'images'}
+                    By {folder.owner?.username || 'Unknown'} • {folder.imageCount || 0}{' '}
+                    {folder.imageCount === 1 ? 'image' : 'images'}
                   </p>
                 </div>
                 <button
@@ -106,27 +107,29 @@ const PublicGallery = () => {
               </div>
 
               {folder.previewImages && folder.previewImages.length > 0 ? (
-                <div className="public-gallery-grid">
-                  {folder.previewImages.map((image, idx) => (
-                    <div
-                      key={idx}
-                      className="public-gallery-item"
-                      onClick={() => openLightbox(image)}
-                    >
-                      <div className="image-container">
-                        <img
-                          src={image.thumbnailUrl || image.url}
-                          alt={image.filename}
-                          loading={folderIdx === 0 && idx < 6 ? 'eager' : 'lazy'}
-                          decoding="async"
-                          {...(folderIdx === 0 && idx === 0 ? { fetchpriority: 'high' } : {})}
-                        />
-                        <div className="image-overlay">
-                          <span>View</span>
+                <div className="cq-grid">
+                  <div className="public-gallery-grid">
+                    {folder.previewImages.map((image, idx) => (
+                      <div
+                        key={idx}
+                        className="public-gallery-item"
+                        onClick={() => openLightbox(image)}
+                      >
+                        <div className="image-container">
+                          <img
+                            src={image.thumbnailUrl || image.url}
+                            alt={image.filename}
+                            loading={folderIdx === 0 && idx < 6 ? 'eager' : 'lazy'}
+                            decoding="async"
+                            {...(folderIdx === 0 && idx === 0 ? { fetchpriority: 'high' } : {})}
+                          />
+                          <div className="image-overlay">
+                            <span>View</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="empty-folder-preview">
@@ -145,9 +148,7 @@ const PublicGallery = () => {
             {(() => {
               const picture = buildPictureSources(selectedImage);
               const fallback = (picture && picture.fallbackSrc) || selectedImage.url;
-              const imgEl = (
-                <img src={fallback} alt={selectedImage.filename} decoding="async" />
-              );
+              const imgEl = <img src={fallback} alt={selectedImage.filename} decoding="async" />;
               if (!picture) return imgEl;
               return (
                 <picture>
@@ -164,7 +165,12 @@ const PublicGallery = () => {
                 onClick={() => downloadImage(selectedImage._id, selectedImage.filename)}
               >
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
                 </svg>
                 Download
               </button>

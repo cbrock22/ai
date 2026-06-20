@@ -78,9 +78,9 @@ const PublicFolderView = () => {
       const response = await fetch(`${API_URL}/api/folders/public/${folderId}/verify`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ password })
+        body: JSON.stringify({ password }),
       });
 
       const data = await response.json();
@@ -147,11 +147,25 @@ const PublicFolderView = () => {
       <div className="public-folder-view">
         <div className="password-prompt soft-card">
           <div className="password-prompt-content">
-            <svg className="lock-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="64" height="64">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            <svg
+              className="lock-icon"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              width="64"
+              height="64"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
             </svg>
             <h2 className="gradient-text">Password Required</h2>
-            <p className="password-prompt-subtitle">This folder is password protected. Please enter the password to view images.</p>
+            <p className="password-prompt-subtitle">
+              This folder is password protected. Please enter the password to view images.
+            </p>
             <form onSubmit={handlePasswordSubmit} className="password-form">
               <div className="form-group">
                 <input
@@ -185,16 +199,10 @@ const PublicFolderView = () => {
             <p>Create a free account to upload and organize your images</p>
           </div>
           <div className="banner-actions">
-            <button
-              className="btn btn-primary"
-              onClick={() => navigate('/register')}
-            >
+            <button className="btn btn-primary" onClick={() => navigate('/register')}>
               Sign Up Free
             </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => navigate('/login')}
-            >
+            <button className="btn btn-secondary" onClick={() => navigate('/login')}>
               Login
             </button>
           </div>
@@ -208,19 +216,34 @@ const PublicFolderView = () => {
           <div className="folder-metadata">
             <span className="folder-owner">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
               </svg>
               {folder.owner.username}
             </span>
             <span className="folder-image-count">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
               {folder.imageCount} {folder.imageCount === 1 ? 'image' : 'images'}
             </span>
             <span className="folder-public-badge">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               Public Gallery
             </span>
@@ -230,28 +253,28 @@ const PublicFolderView = () => {
 
       {/* Gallery Grid */}
       {folder.images && folder.images.length > 0 ? (
-        <div className="public-gallery-grid">
-          {folder.images.map((image, i) => (
-            <div key={image._id} className="public-gallery-item">
-              <div className="image-container" onClick={() => openLightbox(image)}>
-                <img
-                  src={image.thumbnailUrl || image.url}
-                  alt={image.originalName || image.filename}
-                  loading={i < 6 ? 'eager' : 'lazy'}
-                  decoding="async"
-                  {...(i === 0 ? { fetchpriority: 'high' } : {})}
-                />
-                <div className="image-overlay">
-                  <span>View</span>
+        <div className="cq-grid">
+          <div className="public-gallery-grid">
+            {folder.images.map((image, i) => (
+              <div key={image._id} className="public-gallery-item">
+                <div className="image-container" onClick={() => openLightbox(image)}>
+                  <img
+                    src={image.thumbnailUrl || image.url}
+                    alt={image.originalName || image.filename}
+                    loading={i < 6 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    {...(i === 0 ? { fetchpriority: 'high' } : {})}
+                  />
+                  <div className="image-overlay">
+                    <span>View</span>
+                  </div>
+                </div>
+                <div className="image-info">
+                  <p className="image-uploader">By: {image.uploadedBy?.username || 'Unknown'}</p>
                 </div>
               </div>
-              <div className="image-info">
-                <p className="image-uploader">
-                  By: {image.uploadedBy?.username || 'Unknown'}
-                </p>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       ) : (
         <div className="empty-state soft-card">
@@ -264,10 +287,18 @@ const PublicFolderView = () => {
       <Lightbox open={!!selectedImage} onClose={closeLightbox}>
         {selectedImage && (
           <>
-            <img src={selectedImage.url} alt={selectedImage.originalName || selectedImage.filename} decoding="async" />
+            <img
+              src={selectedImage.url}
+              alt={selectedImage.originalName || selectedImage.filename}
+              decoding="async"
+            />
             <div className="lightbox-info">
-              <p><strong>File:</strong> {selectedImage.originalName || selectedImage.filename}</p>
-              <p><strong>Uploaded by:</strong> {selectedImage.uploadedBy?.username || 'Unknown'}</p>
+              <p>
+                <strong>File:</strong> {selectedImage.originalName || selectedImage.filename}
+              </p>
+              <p>
+                <strong>Uploaded by:</strong> {selectedImage.uploadedBy?.username || 'Unknown'}
+              </p>
               <p className="upload-date">
                 <strong>Date:</strong> {new Date(selectedImage.uploadDate).toLocaleString()}
               </p>
@@ -275,10 +306,20 @@ const PublicFolderView = () => {
             <div className="lightbox-actions">
               <button
                 className="btn btn-primary"
-                onClick={() => downloadImage(selectedImage._id, selectedImage.originalName || selectedImage.filename)}
+                onClick={() =>
+                  downloadImage(
+                    selectedImage._id,
+                    selectedImage.originalName || selectedImage.filename
+                  )
+                }
               >
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
                 </svg>
                 Download
               </button>
