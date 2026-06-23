@@ -150,21 +150,29 @@ const Gallery = () => {
       return;
     }
     setSearching(true);
+    // Abort an in-flight search when the query changes (or the component unmounts)
+    // so a slow earlier response can't clobber the results of a newer keystroke.
+    const controller = new AbortController();
     const handle = setTimeout(async () => {
       try {
         const response = await fetch(`${apiUrl}/api/images?q=${encodeURIComponent(q)}`, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: 'include',
+          signal: controller.signal,
         });
         const data = await response.json();
         setSearchResults(response.ok && Array.isArray(data) ? data : []);
       } catch (err) {
-        setSearchResults([]);
+        // Ignore the abort we triggered ourselves; only surface real failures.
+        if (err.name !== 'AbortError') setSearchResults([]);
       } finally {
-        setSearching(false);
+        if (!controller.signal.aborted) setSearching(false);
       }
     }, 300);
-    return () => clearTimeout(handle);
+    return () => {
+      clearTimeout(handle);
+      controller.abort();
+    };
   }, [searchQuery, apiUrl, token]);
 
   // Fetch folders
@@ -196,7 +204,7 @@ const Gallery = () => {
   }, [token, apiUrl, selectedFolder]);
 
   const fetchImages = useCallback(
-    async (pageNum = 1, append = false) => {
+    async (pageNum = 1, append = false, signal) => {
       try {
         if (append) {
           setLoadingMore(true);
@@ -216,6 +224,7 @@ const Gallery = () => {
             Authorization: `Bearer ${token}`,
           },
           credentials: 'include',
+          signal,
         });
         const data = await response.json();
 
@@ -241,10 +250,16 @@ const Gallery = () => {
           setError(data.error || 'Failed to fetch images');
         }
       } catch (err) {
+        // A fetch we aborted (folder changed / unmount) isn't a real error.
+        if (err.name === 'AbortError') return;
         setError('Failed to connect to server');
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        // Skip the state reset for an aborted request — a newer fetch already owns
+        // the loading state and we don't want to flip it off underneath it.
+        if (!signal || !signal.aborted) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [token, selectedFolder, apiUrl]
@@ -255,7 +270,10 @@ const Gallery = () => {
     setPage(1);
     setHasMore(true);
     setImages([]);
-    fetchImages(1, false);
+    const controller = new AbortController();
+    fetchImages(1, false, controller.signal);
+    // Abort the previous folder's in-flight fetch when the selection changes.
+    return () => controller.abort();
   }, [selectedFolder, token, apiUrl]); // Don't include fetchImages to avoid infinite loop
 
   const loadMore = useCallback(() => {

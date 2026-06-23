@@ -1,19 +1,35 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Home from './components/Home';
-import Login from './components/Login';
-import Signup from './components/Signup';
-import Upload from './components/Upload';
-import Gallery from './components/Gallery';
-import PublicGallery from './components/PublicGallery';
-import Folders from './components/Folders';
-import FolderDetail from './components/FolderDetail';
-import PublicFolderView from './components/PublicFolderView';
-import Users from './components/Users';
 import './App.css';
+
+// Route-level code splitting: each page is its own chunk, loaded only when its
+// route is visited. The phone no longer downloads Admin Users, Upload, Folders,
+// etc. just to view the gallery — it cuts the initial bundle and TTI. The eager
+// imports above (providers + route guard) are needed on every render, so they
+// stay in the main chunk.
+const Home = lazy(() => import('./components/Home'));
+const Login = lazy(() => import('./components/Login'));
+const Signup = lazy(() => import('./components/Signup'));
+const Upload = lazy(() => import('./components/Upload'));
+const Gallery = lazy(() => import('./components/Gallery'));
+const PublicGallery = lazy(() => import('./components/PublicGallery'));
+const Folders = lazy(() => import('./components/Folders'));
+const FolderDetail = lazy(() => import('./components/FolderDetail'));
+const PublicFolderView = lazy(() => import('./components/PublicFolderView'));
+const Users = lazy(() => import('./components/Users'));
+
+// Fallback shown while a route chunk is being fetched.
+function RouteFallback() {
+  return (
+    <div className="loading" style={{ minHeight: '50vh' }}>
+      <div className="spinner"></div>
+      <p>Loading…</p>
+    </div>
+  );
+}
 
 // Module-scope constant so it isn't flagged as a missing useEffect dependency.
 const DESKTOP_QUERY = '(min-width: 768px)';
@@ -142,20 +158,22 @@ function AppContent() {
       <TopNav />
       <main className="app-main">
         <div className="app-main-inner">
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<PublicGallery />} />
-            <Route path="/public/folder/:folderId" element={<PublicFolderView />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/register" element={<Signup />} />
-            <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-            <Route path="/folders" element={<ProtectedRoute><Folders /></ProtectedRoute>} />
-            <Route path="/folders/:folderId" element={<ProtectedRoute><FolderDetail /></ProtectedRoute>} />
-            <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
-            <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<PublicGallery />} />
+              <Route path="/public/folder/:folderId" element={<PublicFolderView />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/register" element={<Signup />} />
+              <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+              <Route path="/folders" element={<ProtectedRoute><Folders /></ProtectedRoute>} />
+              <Route path="/folders/:folderId" element={<ProtectedRoute><FolderDetail /></ProtectedRoute>} />
+              <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+              <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
+              <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+            </Routes>
+          </Suspense>
         </div>
       </main>
     </div>

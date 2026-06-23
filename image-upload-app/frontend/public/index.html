@@ -11,6 +11,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" />
 
+    <!-- Warm up the S3 image origin so the first thumbnail doesn't pay for a cold
+         DNS + TLS handshake. crossorigin matches how <img> fetches the renditions;
+         dns-prefetch is the fallback for browsers that ignore preconnect. -->
+    <link rel="preconnect" href="https://image-storage-app-2025.s3.us-east-2.amazonaws.com" crossorigin />
+    <link rel="dns-prefetch" href="https://image-storage-app-2025.s3.us-east-2.amazonaws.com" />
+
     <!-- iOS Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
