@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
 const { apiLimiter } = require('./middleware/rateLimit');
+const { issueCsrfToken, verifyCsrf } = require('./middleware/csrf');
 const multer = require('multer');
 const sharp = require('sharp');
 const { join } = require('path');
@@ -129,6 +130,10 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
+// Issue/refresh the readable CSRF cookie on every request so it's available
+// before the first state-changing call (see middleware/csrf.js).
+app.use(issueCsrfToken);
+
 // Health probe for Docker / orchestration. Intentionally lives OUTSIDE /api so
 // it is not rate-limited and requires no auth. Returns 200 only when Mongo is
 // actually connected (readyState === 1); otherwise 503. This lets
@@ -148,6 +153,18 @@ app.get('/health', (req, res) => {
 
 // General API rate limit (auth endpoints get a stricter limit of their own).
 app.use('/api', apiLimiter);
+
+// CSRF token bootstrap: the SPA can hit this on load to guarantee the readable
+// csrfToken cookie exists before its first write (e.g. login). GET is a safe
+// method so it isn't itself CSRF-guarded.
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: res.locals.csrfToken });
+});
+
+// Double-submit CSRF check on all state-changing /api requests. Runs before the
+// route handlers (and before Multer) so a forged multipart upload is rejected
+// on the header check, never reaching disk/S3.
+app.use('/api', verifyCsrf);
 
 // Serve images with caching headers for better performance (local storage only)
 if (!USE_S3) {

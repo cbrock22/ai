@@ -35,6 +35,30 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon.svg" />
 
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- Speculation Rules API (Chrome/Edge, 2026): prerender same-origin pages the
+         user is most likely to open next. 'moderate' eagerness fires on hover /
+         pointer-down, so the actual click lands on an already-rendered page — a
+         large LCP win on hard navigations (bookmarks, address bar, pre-hydration
+         taps). Cross-origin links (fonts, S3 images) don't match "/*", the API is
+         excluded, and any link tagged .no-prerender is skipped. Browsers without
+         support simply ignore this block, so it degrades gracefully. -->
+    <script type="speculationrules">
+      {
+        "prerender": [
+          {
+            "where": {
+              "and": [
+                { "href_matches": "/*" },
+                { "not": { "href_matches": "/api/*" } },
+                { "not": { "selector_matches": ".no-prerender" } }
+              ]
+            },
+            "eagerness": "moderate"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

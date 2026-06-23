@@ -197,6 +197,25 @@ const upload = multer({
 // Helper: Generate unique filename
 const generateFilename = (ext = 'jpg') => `${Date.now()}-${Math.round(Math.random() * 1E9)}.${ext}`;
 
+// Send a JSON list with a strong, content-derived ETag and revalidation caching.
+// On a repeat request for an unchanged folder the browser sends If-None-Match and
+// we reply with a body-less 304 instead of re-sending the (often multi-KB) list —
+// a cheap repeat-visit bandwidth win, which matters most on mobile. We hash the
+// serialized payload (which already reflects per-user `isFavorited` flags), so the
+// ETag changes whenever anything the user would see changes. Cache-Control is
+// `private` (responses are user-specific) and `no-cache` (always revalidate via
+// the conditional request rather than serving a stale copy).
+const sendJsonCached = (req, res, payload) => {
+  const body = JSON.stringify(payload);
+  const etag = `"${crypto.createHash('sha1').update(body).digest('base64')}"`;
+  res.set('ETag', etag);
+  res.set('Cache-Control', 'private, no-cache');
+  if (req.headers['if-none-match'] === etag) {
+    return res.status(304).end();
+  }
+  return res.type('application/json').send(body);
+};
+
 // Upload image to folder
 router.post('/',
   upload.single('image'),
@@ -589,7 +608,7 @@ router.get('/folder/:folderId', checkFolderAccess('read'), async (req, res) => {
       ? undefined
       : await Image.countDocuments({ folder: req.folder._id });
 
-    res.json({
+    sendJsonCached(req, res, {
       images: imagesWithFavorites,
       pagination: {
         limit,
@@ -667,7 +686,7 @@ router.get('/', async (req, res) => {
       });
     }
 
-    res.json(imagesWithFavorites);
+    sendJsonCached(req, res, imagesWithFavorites);
   } catch (error) {
     console.error('Get all images error:', error);
     res.status(500).json({ error: 'Failed to fetch images' });

@@ -1,4 +1,9 @@
-# Multi-stage build for production
+# Multi-stage build for production.
+#
+# Built multi-arch (linux/amd64 + linux/arm64) by the CI pipeline via Buildx.
+# Both stages run under the target architecture, so `npm install` pulls the
+# correct platform-specific native binaries (notably sharp/libvips) for each
+# arch — no extra configuration needed here.
 FROM node:18-alpine AS builder
 
 # Set working directory
