@@ -13,8 +13,11 @@ const sharp = require('sharp');
  * cuts the lightbox payload 50-80% versus serving the raw original.
  */
 
-// Target widths for the display ladder (px). Tuned for phone -> retina desktop.
-const DISPLAY_WIDTHS = [640, 1280, 2400];
+// Target widths for the responsive ladder (px). Tuned to cover both the gallery
+// GRID thumbnail (small cell, ~150-300 CSS px, so 320/640 handle 1x/2x DPR) and
+// the full-size lightbox view (1280/2400 for retina desktop). 320 is the grid's
+// 1x rung; without it a retina grid had to upscale a single 300px thumbnail.
+const DISPLAY_WIDTHS = [320, 640, 1280, 2400];
 
 // Encoder settings: balance quality vs. size/CPU. AVIF effort kept moderate so
 // synchronous upload latency stays reasonable on a small Lightsail box.

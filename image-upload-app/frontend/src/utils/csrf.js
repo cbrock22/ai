@@ -5,6 +5,12 @@
 // ~19 mutating fetch call sites, we install a single window.fetch wrapper that
 // attaches the header automatically. Importing this module for its side effect
 // (see index.js) installs the wrapper before the app makes any request.
+//
+// IMPORTANT: the wrapper only covers `fetch`. Any request sent by another
+// transport — XMLHttpRequest (used by Upload.js for progress events),
+// navigator.sendBeacon, a native <form> POST — bypasses it entirely and must
+// attach the header itself via the exported ensureCsrfToken() below. Omitting
+// it yields a 403 { error: 'Invalid CSRF token' } from the server.
 
 const CSRF_COOKIE = 'csrfToken';
 const CSRF_HEADER = 'X-CSRF-Token';
@@ -16,16 +22,27 @@ function readCookie(name) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+// Captured before the wrapper is installed, so internal calls never re-enter it.
+const nativeFetch = window.fetch.bind(window);
+
 // Resolve the token, bootstrapping the cookie once if it doesn't exist yet
 // (e.g. when the very first user action is a login POST). Concurrent callers
-// share the single in-flight bootstrap request.
+// share the single in-flight bootstrap request — which matters for the batch
+// uploader, where N files fire in parallel from a cold cookie.
+//
+// Exported for non-fetch transports (see the note at the top of this file).
+// Returns null if the cookie is absent AND the bootstrap request failed; callers
+// should treat that as "cannot send a state-changing request" rather than
+// sending one without the header and eating an opaque 403.
 let bootstrap = null;
-async function ensureToken() {
+export async function ensureCsrfToken() {
   const existing = readCookie(CSRF_COOKIE);
   if (existing) return existing;
 
   if (!bootstrap) {
-    bootstrap = fetch(`${API_URL}/api/csrf-token`, { credentials: 'include' })
+    // nativeFetch, not the wrapper: this is a plain GET and must never re-enter
+    // the wrapper (which would call back into ensureCsrfToken).
+    bootstrap = nativeFetch(`${API_URL}/api/csrf-token`, { credentials: 'include' })
       .catch(() => {})
       .finally(() => { bootstrap = null; });
   }
@@ -45,8 +62,6 @@ function isOwnApiRequest(url) {
   }
 }
 
-const nativeFetch = window.fetch.bind(window);
-
 window.fetch = async function csrfFetch(input, init = {}) {
   const url = typeof input === 'string' ? input : (input && input.url) || '';
   const method = (
@@ -56,7 +71,7 @@ window.fetch = async function csrfFetch(input, init = {}) {
   ).toUpperCase();
 
   if (!SAFE_METHOD.test(method) && isOwnApiRequest(url)) {
-    const token = await ensureToken();
+    const token = await ensureCsrfToken();
     const headers = new Headers(
       init.headers || (typeof input !== 'string' && input ? input.headers : undefined)
     );

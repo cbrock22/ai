@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { ensureCsrfToken } from '../utils/csrf';
 import '../common.css';
 import './Upload.css';
 
@@ -96,6 +97,18 @@ const Upload = () => {
 
     const uploadUrl = `${apiUrl}/api/images`;
 
+    // This request goes out over XMLHttpRequest (for upload progress events), so
+    // the global window.fetch CSRF wrapper does NOT apply — we attach the
+    // double-submit header ourselves or the server rejects the POST with 403.
+    const csrfToken = await ensureCsrfToken();
+    if (!csrfToken) {
+      return {
+        success: false,
+        filename: file.name,
+        error: 'Could not obtain a security token. Please reload the page and try again.',
+      };
+    }
+
     return new Promise((resolve) => {
       const xhr = new XMLHttpRequest();
 
@@ -166,6 +179,9 @@ const Upload = () => {
       // Open and send request
       xhr.open('POST', uploadUrl);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+      // No Content-Type header: the browser must set it so the multipart
+      // boundary is generated correctly for the FormData body.
       xhr.withCredentials = true;
       xhr.timeout = 300000; // 5 minute timeout for large image processing
       xhr.send(formData);

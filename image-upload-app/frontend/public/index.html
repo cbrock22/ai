@@ -1,21 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#1c1c1a" />
     <meta name="description" content="Upload and view images with automatic compression" />
 
     <!-- App font: Manrope (modern geometric sans) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap"
+    />
 
     <!-- Warm up the S3 image origin so the first thumbnail doesn't pay for a cold
          DNS + TLS handshake. crossorigin matches how <img> fetches the renditions;
          dns-prefetch is the fallback for browsers that ignore preconnect. -->
-    <link rel="preconnect" href="https://image-storage-app-2025.s3.us-east-2.amazonaws.com" crossorigin />
+    <link
+      rel="preconnect"
+      href="https://image-storage-app-2025.s3.us-east-2.amazonaws.com"
+      crossorigin
+    />
     <link rel="dns-prefetch" href="https://image-storage-app-2025.s3.us-east-2.amazonaws.com" />
+
+    <!-- Responsive-image Client Hints (Chromium). Accept-CH opts this document in
+         to sending Sec-CH-DPR / Sec-CH-Width / Sec-CH-Viewport-Width on outgoing
+         requests; Delegate-CH forwards those hints to the cross-origin S3 image
+         host (hints are same-origin by default). Today the browser's own srcset +
+         sizes selection already picks the right rendition from our static ladder,
+         so this changes nothing on its own — but it's the standards-compliant
+         opt-in that makes delivery automatic the moment an on-the-fly image
+         resizer (imgproxy / CloudFront) sits in front of the bucket. Non-Chromium
+         browsers ignore it; harmless. -->
+    <meta http-equiv="Accept-CH" content="Sec-CH-DPR, Sec-CH-Width, Sec-CH-Viewport-Width" />
+    <meta
+      http-equiv="Delegate-CH"
+      content="sec-ch-dpr https://image-storage-app-2025.s3.us-east-2.amazonaws.com; sec-ch-width https://image-storage-app-2025.s3.us-east-2.amazonaws.com; sec-ch-viewport-width https://image-storage-app-2025.s3.us-east-2.amazonaws.com"
+    />
 
     <!-- iOS Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
