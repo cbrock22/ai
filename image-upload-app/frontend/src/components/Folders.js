@@ -343,9 +343,19 @@ const Folders = () => {
 
                   <div className="form-group">
                     <label htmlFor="folderPassword">Password (Optional)</label>
+                    {/* Folder passwords are not account credentials. Browsers ignore
+                        autoComplete="off" on password fields, so the vendor opt-outs
+                        are what actually stop managers saving or filling the user's
+                        ACCOUNT password here (best-effort, non-standard). */}
                     <input
                       type="password"
                       id="folderPassword"
+                      name="folderPassword"
+                      autoComplete="off"
+                      data-1p-ignore="true"
+                      data-lpignore="true"
+                      data-bwignore="true"
+                      data-form-type="other"
                       value={folderPassword}
                       onChange={(e) => setFolderPassword(e.target.value)}
                       placeholder="Leave blank for no password"

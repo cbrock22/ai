@@ -167,9 +167,16 @@ const PublicFolderView = () => {
               This folder is password protected. Please enter the password to view images.
             </p>
             <form onSubmit={handlePasswordSubmit} className="password-form">
+              {/* Folder gate, not a login -- see the note in Folders.js. */}
               <div className="form-group">
                 <input
                   type="password"
+                  name="folderAccessPassword"
+                  autoComplete="off"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
+                  data-bwignore="true"
+                  data-form-type="other"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
