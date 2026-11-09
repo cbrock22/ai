@@ -4,16 +4,11 @@ const multer = require('multer');
 const sharp = require('sharp');
 const { join } = require('path');
 const { existsSync, unlinkSync } = require('fs');
-const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { Upload } = require('@aws-sdk/lib-storage');
+const { S3Client, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const Image = require('../models/Image');
-const { generateRenditions } = require('../services/renditions');
+const { generateFilename, putObject, deleteObjects } = require('../services/storage');
 const { authenticateToken, optionalAuthentication } = require('../middleware/auth');
 const { checkFolderAccess } = require('../middleware/folderPermission');
-
-// Toggle for the responsive display ladder (AVIF/WebP/JPEG). On by default;
-// set DISPLAY_RENDITIONS=false to skip the extra encode work if needed.
-const GENERATE_RENDITIONS = process.env.DISPLAY_RENDITIONS !== 'false';
 
 const router = express.Router();
 
@@ -132,43 +127,6 @@ router.get('/:imageId/download', optionalAuthentication, async (req, res) => {
 // All other routes require authentication
 router.use(authenticateToken);
 
-// Processing queue to prevent memory exhaustion
-class ImageProcessingQueue {
-  constructor() {
-    this.queue = [];
-    this.processing = false;
-  }
-
-  async add(task) {
-    return new Promise((resolve, reject) => {
-      this.queue.push({ task, resolve, reject });
-      this.process();
-    });
-  }
-
-  async process() {
-    if (this.processing || this.queue.length === 0) return;
-
-    this.processing = true;
-    const { task, resolve, reject } = this.queue.shift();
-
-    try {
-      const result = await task();
-      resolve(result);
-    } catch (error) {
-      reject(error);
-    } finally {
-      this.processing = false;
-      // Process next item
-      if (this.queue.length > 0) {
-        setImmediate(() => this.process());
-      }
-    }
-  }
-}
-
-const imageQueue = new ImageProcessingQueue();
-
 // S3 configuration
 const USE_S3 = process.env.USE_S3 === 'true';
 const s3Client = USE_S3 ? new S3Client({
@@ -194,9 +152,6 @@ const upload = multer({
   limits: { fileSize: 100 * 1024 * 1024 }
 });
 
-// Helper: Generate unique filename
-const generateFilename = (ext = 'jpg') => `${Date.now()}-${Math.round(Math.random() * 1E9)}.${ext}`;
-
 // Send a JSON list with a strong, content-derived ETag and revalidation caching.
 // On a repeat request for an unchanged folder the browser sends If-None-Match and
 // we reply with a body-less 304 instead of re-sending the (often multi-KB) list —
@@ -217,6 +172,17 @@ const sendJsonCached = (req, res, payload) => {
 };
 
 // Upload image to folder
+//
+// Responds as soon as the image is viewable: the 300px grid thumbnail (~15ms of
+// CPU) and the raw original are stored, and the row is saved as
+// `processingStatus: 'pending'`. The expensive part — the AVIF/WebP rendition
+// ladder, 8-50 CPU-seconds per photo — is left to services/renditionWorker.js,
+// which reads the original back from storage one image at a time.
+//
+// This is what makes a 500-1000 image batch viable. Request time is now bounded
+// by the upload itself instead of by how much encoding is queued ahead of it, so
+// no request sits past the browser's timeout, and the server never holds more
+// than one image's bytes in memory however deep the backlog gets.
 router.post('/',
   upload.single('image'),
   checkFolderAccess('write'),
@@ -224,6 +190,11 @@ router.post('/',
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
+
+    // Keys we are about to write, so a later failure can clean them up. Without
+    // this, a store that succeeds followed by a save that throws leaves objects
+    // nothing points at and we keep paying to hold them.
+    const written = [];
 
     try {
       // Content-hash dedupe: fingerprint the raw bytes BEFORE any Sharp work so
@@ -245,125 +216,56 @@ router.post('/',
         });
       }
 
-      console.log(`[ImageUpload] Queuing image: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`);
+      console.log(`[ImageUpload] ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)} MB)`);
 
-      // Queue the image processing to prevent memory exhaustion
-      const result = await imageQueue.add(async () => {
-        console.log(`[ImageUpload] Processing: ${req.file.originalname}`);
+      const originalExt = req.file.originalname.split('.').pop().toLowerCase();
+      const originalFilename = generateFilename(originalExt);
 
-        // Get original file extension
-        const originalExt = req.file.originalname.split('.').pop().toLowerCase();
-        const originalFilename = generateFilename(originalExt);
+      // Local-storage URLs only: keep using the request's own host so a phone on
+      // the LAN can still load dev images (the worker has no request and falls
+      // back to BACKEND_URL).
+      const baseUrl = `${req.protocol || 'http'}://${req.get('host') || `localhost:${process.env.PORT || 3001}`}`;
 
-        // Get image metadata (lightweight operation)
-        const metadata = await sharp(req.file.buffer).metadata();
+      // ARCHIVE COPY FIRST, on its own, before anything that can fail.
+      // These are the bytes the browser sent, stored untouched — no resize, no
+      // re-encode — and they are what the download route serves. Everything
+      // below this line is display convenience. Sharp used to run first, which
+      // meant a file it could not decode (iPhone HEIC, camera RAW) failed the
+      // whole request and the original was never kept.
+      const originalUrl = await putObject(req.file.buffer, originalFilename, req.file.mimetype, { baseUrl });
+      written.push(originalFilename);
 
-        // Only create thumbnail (300x300 max) - optimized for fast loading
-        const thumbnailSharp = sharp(req.file.buffer)
+      // Grid thumbnail. Cheap (~15ms) so it stays in the request and a
+      // just-uploaded image shows up immediately rather than as a blank tile.
+      // If Sharp cannot read the file we keep the upload anyway: the grid falls
+      // back to the original (see LazyImage) and the rendition worker will mark
+      // the row failed, but the archive copy is already safe.
+      let metadata = {};
+      let thumbnail = null;
+      try {
+        metadata = await sharp(req.file.buffer).metadata();
+
+        // resolveWithObject gives us the output dimensions without a second decode.
+        const { data, info } = await sharp(req.file.buffer)
           .rotate()
           .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
-          .webp({ quality: 75 }); // WebP is smaller than JPEG with same quality
+          .webp({ quality: 75 }) // WebP is smaller than JPEG at the same quality
+          .toBuffer({ resolveWithObject: true });
 
-        const thumbnailBuffer = await thumbnailSharp.toBuffer();
-        const thumbnailMetadata = await sharp(thumbnailBuffer).metadata();
-
-        // Responsive display ladder (AVIF/WebP/JPEG) for the lightbox view.
-        // Generated in the same queued task to bound concurrent CPU use.
-        const renditions = GENERATE_RENDITIONS
-          ? await generateRenditions(req.file.buffer)
-          : [];
-
-        console.log(`[ImageUpload] Completed processing: ${req.file.originalname} (${renditions.length} renditions)`);
-        return {
-          originalFilename,
-          thumbnailBuffer,
-          thumbnailWidth: thumbnailMetadata.width,
-          thumbnailHeight: thumbnailMetadata.height,
-          renditions,
-          metadata
-        };
-      });
-
-      const { originalFilename, thumbnailBuffer, thumbnailWidth, thumbnailHeight, renditions, metadata } = result;
-      console.log(`[ImageUpload] Uploading to storage: ${req.file.originalname}`);
-
-      const thumbnailFilename = generateFilename('webp');
-      let originalUrl, thumbnailUrl;
-
-      if (USE_S3) {
-        // Upload raw original file to S3 (no compression)
-        const originalUpload = new Upload({
-          client: s3Client,
-          params: {
-            Bucket: S3_BUCKET,
-            Key: originalFilename,
-            Body: req.file.buffer,
-            ContentType: req.file.mimetype,
-            CacheControl: 'max-age=604800'
-          }
+        const thumbnailFilename = generateFilename('webp');
+        const thumbnailUrl = await putObject(data, thumbnailFilename, 'image/webp', {
+          cacheControl: 'max-age=2592000, immutable', // 30 days, filename is unique
+          baseUrl
         });
-
-        // Upload thumbnail to S3
-        const thumbnailUpload = new Upload({
-          client: s3Client,
-          params: {
-            Bucket: S3_BUCKET,
-            Key: thumbnailFilename,
-            Body: thumbnailBuffer,
-            ContentType: 'image/webp',
-            CacheControl: 'max-age=2592000, immutable' // 30 days, immutable for better caching
-          }
-        });
-
-        await Promise.all([originalUpload.done(), thumbnailUpload.done()]);
-
-        originalUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${originalFilename}`;
-        thumbnailUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${thumbnailFilename}`;
-      } else {
-        // Save both versions locally
-        const fs = require('fs').promises;
-        await Promise.all([
-          fs.writeFile(join(uploadsDir, originalFilename), req.file.buffer),
-          fs.writeFile(join(uploadsDir, thumbnailFilename), thumbnailBuffer)
-        ]);
-
-        // Construct full URLs for Docker/development environments
-        const protocol = req.protocol || 'http';
-        const host = req.get('host') || `localhost:${process.env.PORT || 3001}`;
-        originalUrl = `${protocol}://${host}/uploads/${originalFilename}`;
-        thumbnailUrl = `${protocol}://${host}/uploads/${thumbnailFilename}`;
+        written.push(thumbnailFilename);
+        thumbnail = { url: thumbnailUrl, size: data.length, width: info.width, height: info.height };
+      } catch (err) {
+        console.error(
+          `[ImageUpload] no display versions for ${req.file.originalname} ` +
+          `(original IS stored): ${err.message}`
+        );
       }
 
-      // Upload the display renditions (AVIF/WebP/JPEG ladder) in parallel and
-      // collect their records for the DB. Long, immutable cache: filenames are
-      // content-unique so they can be cached aggressively.
-      const region = process.env.AWS_REGION || 'us-east-1';
-      const renditionRecords = await Promise.all(renditions.map(async (r) => {
-        const rFilename = generateFilename(r.ext);
-        let rUrl;
-        if (USE_S3) {
-          await new Upload({
-            client: s3Client,
-            params: {
-              Bucket: S3_BUCKET,
-              Key: rFilename,
-              Body: r.buffer,
-              ContentType: r.contentType,
-              CacheControl: 'max-age=2592000, immutable' // 30 days
-            }
-          }).done();
-          rUrl = `https://${S3_BUCKET}.s3.${region}.amazonaws.com/${rFilename}`;
-        } else {
-          const fs = require('fs').promises;
-          await fs.writeFile(join(uploadsDir, rFilename), r.buffer);
-          const protocol = req.protocol || 'http';
-          const host = req.get('host') || `localhost:${process.env.PORT || 3001}`;
-          rUrl = `${protocol}://${host}/uploads/${rFilename}`;
-        }
-        return { url: rUrl, format: r.format, width: r.width, height: r.height, size: r.size };
-      }));
-
-      // Save to database
       const image = new Image({
         filename: originalFilename,
         originalName: req.file.originalname,
@@ -372,25 +274,25 @@ router.post('/',
         displayUrl: originalUrl, // Same as original (raw image, no processing)
         size: req.file.size,
         originalSize: req.file.size,
-        displaySize: req.file.size, // Same as original (raw image, no processing)
+        displaySize: req.file.size,
         originalWidth: metadata.width,
         originalHeight: metadata.height,
-        thumbnailUrl,
-        thumbnailSize: thumbnailBuffer.length,
-        thumbnailWidth,
-        thumbnailHeight,
-        renditions: renditionRecords,
+        ...(thumbnail && {
+          thumbnailUrl: thumbnail.url,
+          thumbnailSize: thumbnail.size,
+          thumbnailWidth: thumbnail.width,
+          thumbnailHeight: thumbnail.height
+        }),
+        renditions: [], // filled in by the rendition worker
         hash,
         folder: req.folder._id,
         uploadedBy: req.user._id,
-        processingStatus: 'completed' // Thumbnail generated synchronously
+        processingStatus: 'pending' // rendition ladder still to come
       });
 
       await image.save();
       await image.populate('uploadedBy', 'username email');
       await image.populate('folder', 'name');
-
-      console.log(`[ImageUpload] Success: ${req.file.originalname} - Queue length: ${imageQueue.queue.length}`);
 
       res.status(201).json({
         message: 'Uploaded successfully',
@@ -398,132 +300,13 @@ router.post('/',
       });
     } catch (error) {
       console.error('Upload error:', error);
+      await deleteObjects(written);
       res.status(500).json({ error: error.message });
     }
   }
 );
 
-// Bulk upload endpoint - accepts multiple files, processes asynchronously
-router.post('/bulk',
-  upload.array('images', 20),  // Accept up to 20 images
-  checkFolderAccess('write'),
-  async (req, res) => {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
-    }
 
-    const uploadId = `upload-${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-
-    // Return immediately with 202 Accepted
-    res.status(202).json({
-      uploadId,
-      message: 'Upload accepted, processing in background',
-      totalFiles: req.files.length
-    });
-
-    // Process files asynchronously without blocking
-    setImmediate(async () => {
-      const results = [];
-
-      for (const file of req.files) {
-        try {
-          // Folder-scoped dedupe (same fingerprint as the single-upload path):
-          // skip identical re-uploads before doing any Sharp/S3 work.
-          const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
-          const duplicate = await Image.findOne({ folder: req.folder._id, hash }).lean();
-          if (duplicate) {
-            console.log(`[BulkUpload] ${uploadId}: Duplicate skipped ${file.originalname}`);
-            results.push({ success: true, duplicate: true, filename: file.originalname });
-            continue;
-          }
-
-          // Get original file extension
-          const originalExt = file.originalname.split('.').pop().toLowerCase();
-          const originalFilename = generateFilename(originalExt);
-          const compressedFilename = generateFilename('jpg');
-
-          // Since client already compressed, we can skip heavy compression
-          // Just ensure proper format and size limits
-          const compressedBuffer = await sharp(file.buffer)
-            .rotate()
-            .resize(2400, 2400, { fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 85, progressive: true, mozjpeg: true })
-            .toBuffer();
-
-          let url, originalUrl;
-
-          if (USE_S3) {
-            // Upload compressed version to S3
-            const compressedUpload = new Upload({
-              client: s3Client,
-              params: {
-                Bucket: S3_BUCKET,
-                Key: compressedFilename,
-                Body: compressedBuffer,
-                ContentType: 'image/jpeg',
-                CacheControl: 'max-age=604800'
-              }
-            });
-
-            // Upload original uncompressed version to S3
-            const originalUpload = new Upload({
-              client: s3Client,
-              params: {
-                Bucket: S3_BUCKET,
-                Key: originalFilename,
-                Body: file.buffer,
-                ContentType: file.mimetype,
-                CacheControl: 'max-age=604800'
-              }
-            });
-
-            await Promise.all([compressedUpload.done(), originalUpload.done()]);
-
-            url = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${compressedFilename}`;
-            originalUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${originalFilename}`;
-          } else {
-            // Save both versions locally
-            const fs = require('fs').promises;
-            await Promise.all([
-              fs.writeFile(join(uploadsDir, compressedFilename), compressedBuffer),
-              fs.writeFile(join(uploadsDir, originalFilename), file.buffer)
-            ]);
-
-            const protocol = 'http'; // Default for local
-            const host = `localhost:${process.env.PORT || 3001}`;
-            url = `${protocol}://${host}/uploads/${compressedFilename}`;
-            originalUrl = `${protocol}://${host}/uploads/${originalFilename}`;
-          }
-
-          // Save to database
-          const image = new Image({
-            filename: compressedFilename,
-            originalName: file.originalname,
-            url,
-            originalFilename,
-            originalUrl,
-            originalSize: file.size,
-            hash,
-            folder: req.folder._id,
-            uploadedBy: req.user._id,
-            size: compressedBuffer.length,
-            processingStatus: 'completed'
-          });
-
-          await image.save();
-          results.push({ success: true, filename: file.originalname });
-          console.log(`[BulkUpload] ${uploadId}: Processed ${file.originalname}`);
-        } catch (error) {
-          console.error(`[BulkUpload] ${uploadId}: Failed ${file.originalname}:`, error);
-          results.push({ success: false, filename: file.originalname, error: error.message });
-        }
-      }
-
-      const successCount = results.filter(r => r.success).length;
-      console.log(`[BulkUpload] ${uploadId}: Complete - ${successCount}/${req.files.length} succeeded`);
-    });
-  }
-);
 
 // Encode/decode an opaque keyset cursor. The cursor is just the sort key of the
 // last row returned — (uploadDate, _id) — base64'd so the client treats it as

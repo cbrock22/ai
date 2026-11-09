@@ -17,6 +17,12 @@ const { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand, G
 const { Upload } = require('@aws-sdk/lib-storage');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
+// One libvips thread per encode. The rendition worker fires nine encodes per
+// image at once; left at the default (one thread per CPU each) they fight for
+// the same one or two cores on a small Lightsail box and thrash. Serialising
+// them costs the same total CPU with predictable memory.
+sharp.concurrency(1);
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 const uploadsDir = join(__dirname, 'uploads');
@@ -30,9 +36,11 @@ mongoose.connect(MONGODB_URI)
     // Create default admin user if it doesn't exist
     await createDefaultAdmin();
 
-    // Thumbnail worker disabled - thumbnails now generated synchronously on upload
-    // const { startThumbnailWorker } = require('./services/thumbnailWorker');
-    // startThumbnailWorker();
+    // Build the AVIF/WebP rendition ladder for any image still marked pending.
+    // Started after the DB connects because its backlog IS the database: rows
+    // left pending by a crash or a deploy mid-batch are picked up from here.
+    const { startRenditionWorker } = require('./services/renditionWorker');
+    startRenditionWorker();
   })
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
@@ -414,5 +422,11 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   }
 });
 
-// Increase timeout for image processing (5 minutes)
+// Socket inactivity timeout (5 minutes).
 server.timeout = 300000;
+
+// How long a client may take to send a complete request body. Node's default is
+// also 5 minutes, which a large photo on a slow upstream can genuinely exceed —
+// the connection was then dropped mid-upload with nothing in the logs. Set
+// explicitly rather than inherited so the value is visible.
+server.requestTimeout = 900000; // 15 minutes

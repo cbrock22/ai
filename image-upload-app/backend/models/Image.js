@@ -135,4 +135,9 @@ imageSchema.index({ folder: 1, uploadDate: -1, _id: -1 });
 // Folder-scoped duplicate detection on re-upload (see `hash` above).
 imageSchema.index({ folder: 1, hash: 1 });
 
+// The rendition worker's poll: oldest image still waiting for its AVIF/WebP
+// ladder. Without this index the lookup is a full collection scan, which it runs
+// once per processed image — and a single batch can leave 500-1000 rows pending.
+imageSchema.index({ processingStatus: 1, uploadDate: 1 });
+
 module.exports = mongoose.model('Image', imageSchema);

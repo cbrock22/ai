@@ -19,10 +19,20 @@ const sharp = require('sharp');
 // 1x rung; without it a retina grid had to upscale a single 300px thumbnail.
 const DISPLAY_WIDTHS = [320, 640, 1280, 2400];
 
-// Encoder settings: balance quality vs. size/CPU. AVIF effort kept moderate so
-// synchronous upload latency stays reasonable on a small Lightsail box.
+// Encoder settings: balance quality vs. size/CPU. These no longer run inside the
+// upload request (see services/renditionWorker.js), so they do not affect upload
+// latency — but they do decide how long the background backlog takes to clear,
+// which at 500-1000 images per batch is the number that matters.
 const ENCODERS = {
-  avif: { contentType: 'image/avif', ext: 'avif', options: { quality: 50, effort: 4 } },
+  // effort 0, not 4. Measured on real photos from this app: effort 4 costs
+  // ~7s of CPU per 2400px rung against ~0.3s at effort 0 — over 20x — and
+  // AVIF's `quality` is not an exact target, so effort 0 at quality 55
+  // measured equal or slightly better than effort 4 at quality 50 (mean abs
+  // error vs the source: 2.955 against 3.020) for ~17% more bytes. That makes
+  // the whole ladder 13.8s -> 1.3s per photo. Worth it because the download is
+  // always the untouched original; these renditions only need to be good
+  // enough to choose between photos.
+  avif: { contentType: 'image/avif', ext: 'avif', options: { quality: 55, effort: 0 } },
   webp: { contentType: 'image/webp', ext: 'webp', options: { quality: 78 } },
   jpeg: { contentType: 'image/jpeg', ext: 'jpg', options: { quality: 82, progressive: true, mozjpeg: true } },
 };

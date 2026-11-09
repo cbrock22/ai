@@ -15,9 +15,13 @@ const Upload = () => {
   const [folders, setFolders] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState('');
   const [loadingFolders, setLoadingFolders] = useState(true);
-  const [uploadProgress, setUploadProgress] = useState([]);
-  const [currentlyUploading, setCurrentlyUploading] = useState(0);
   const [singleFileProgress, setSingleFileProgress] = useState(0);
+  const [doneCount, setDoneCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentName, setCurrentName] = useState('');
+  // Only the failures are kept, not a row per file: a 1000-image batch would
+  // otherwise render 1000 DOM nodes and re-render all of them on every file.
+  const [failed, setFailed] = useState([]);
 
   // Fetch folders user has write access to
   useEffect(() => {
@@ -53,6 +57,18 @@ const Upload = () => {
 
     fetchFolders();
   }, [token, apiUrl]);
+
+  // A 500-1000 image batch runs for a long time, and closing the tab or hitting
+  // refresh silently abandons it part-way. Ask first while one is in flight.
+  useEffect(() => {
+    if (!uploading) return undefined;
+    const warn = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [uploading]);
 
   const createPreview = useCallback((file) => {
     const reader = new FileReader();
@@ -90,6 +106,10 @@ const Upload = () => {
     }
   }, [createPreview, uploadMode]);
 
+  // Retry transport failures once. A 4xx is a permissions, CSRF or file problem
+  // that a retry cannot fix, so those are not retried.
+  const MAX_ATTEMPTS = 2;
+
   const uploadSingleFile = async (file, onProgress) => {
     const formData = new FormData();
     formData.append('image', file);
@@ -126,10 +146,13 @@ const Upload = () => {
           const contentType = xhr.getResponseHeader('content-type');
 
           if (!contentType || !contentType.includes('application/json')) {
+            // Usually an nginx error page (502/504) rather than our API, so this
+            // is worth one retry.
             console.error('[Upload] Non-JSON response:', xhr.responseText.substring(0, 200));
             resolve({
               success: false,
               filename: file.name,
+              retriable: true,
               error: `Server returned HTML instead of JSON. Status: ${xhr.status}`
             });
             return;
@@ -144,6 +167,7 @@ const Upload = () => {
             resolve({
               success: false,
               filename: file.name,
+              retriable: xhr.status >= 500,
               error: data.error || `HTTP ${xhr.status}`
             });
           }
@@ -152,6 +176,7 @@ const Upload = () => {
           resolve({
             success: false,
             filename: file.name,
+            retriable: true,
             error: error.message
           });
         }
@@ -163,7 +188,22 @@ const Upload = () => {
         resolve({
           success: false,
           filename: file.name,
+          retriable: true,
           error: 'Network error'
+        });
+      });
+
+      // Handle the xhr.timeout set below. XHR fires a `timeout` event — NOT
+      // `error` and NOT `abort` — when that timer expires, so without this
+      // listener the promise never settles and the whole batch waits on it
+      // forever with no error shown.
+      xhr.addEventListener('timeout', () => {
+        console.error('Upload timed out');
+        resolve({
+          success: false,
+          filename: file.name,
+          retriable: true,
+          error: 'Timed out'
         });
       });
 
@@ -188,6 +228,53 @@ const Upload = () => {
     });
   };
 
+  // Upload a list of files ONE AT A TIME.
+  //
+  // Sequential on purpose. The upstream connection is the bottleneck, so N
+  // parallel uploads are not faster overall — each just gets 1/N of the
+  // bandwidth while all N race the same 5-minute timeout, which is how a large
+  // batch used to fail wholesale. One at a time means every request finishes
+  // quickly, a failure names a single file, a retry costs one file, and the
+  // server only ever holds one image in memory.
+  //
+  // Returns the files that still failed after their retry.
+  const runBatch = async (files) => {
+    const failures = [];
+    setTotalCount(files.length);
+    setDoneCount(0);
+    setFailed([]);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setCurrentName(file.name);
+      setSingleFileProgress(0);
+
+      let result;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        result = await uploadSingleFile(file, (p) => setSingleFileProgress(Math.round(p)));
+        if (result.success || !result.retriable) break;
+        console.warn(`[Upload] retrying ${file.name} (attempt ${attempt + 1}): ${result.error}`);
+      }
+
+      if (!result.success) {
+        failures.push({ file, filename: file.name, error: result.error });
+        setFailed([...failures]);
+      }
+      setDoneCount(i + 1);
+    }
+
+    setCurrentName('');
+    return failures;
+  };
+
+  const summarise = (files, failures) => {
+    const okCount = files.length - failures.length;
+    if (failures.length === 0) {
+      return `Upload complete: ${okCount} succeeded. The server is still building display versions in the background.`;
+    }
+    return `${okCount} of ${files.length} succeeded, ${failures.length} failed (first error: ${failures[0].error}).`;
+  };
+
   const handleUpload = async () => {
     if (uploadMode === 'single') {
       if (!selectedFile) {
@@ -210,7 +297,7 @@ const Upload = () => {
 
       if (result.success) {
         setSingleFileProgress(100);
-        setMessage('Image uploaded successfully! Processing lossless versions...');
+        setMessage('Image uploaded. The server is still building display versions in the background.');
         setTimeout(() => {
           setSelectedFile(null);
           setPreview(null);
@@ -223,98 +310,65 @@ const Upload = () => {
         setSingleFileProgress(0);
       }
       setUploading(false);
-    } else {
-      // Batch upload with parallel chunks (no client-side compression)
-      if (selectedFiles.length === 0) {
-        setMessage('Please select files first');
-        return;
-      }
+      return;
+    }
 
-      if (!selectedFolder) {
-        setMessage('Please select a folder');
-        return;
-      }
+    if (selectedFiles.length === 0) {
+      setMessage('Please select files first');
+      return;
+    }
 
-      setUploading(true);
-      setMessage('Uploading original quality images...');
-      setUploadProgress([]);
+    if (!selectedFolder) {
+      setMessage('Please select a folder');
+      return;
+    }
 
-      // Upload in parallel chunks
-      // Reduced parallelism to prevent backend memory exhaustion
-      // Chunk size: 5 files per batch (reduced from 20)
-      // Parallel chunks: 2 concurrent requests (reduced from 3)
-      const chunkSize = 5;
-      const parallelChunks = 2;
-      const results = [];
+    setUploading(true);
+    setMessage(`Uploading ${selectedFiles.length} image(s) at original quality...`);
 
-      for (let i = 0; i < selectedFiles.length; i += chunkSize * parallelChunks) {
-        const chunks = [];
+    const failures = await runBatch(selectedFiles);
 
-        // Create up to 3 chunks to upload in parallel
-        for (let j = 0; j < parallelChunks; j++) {
-          const start = i + (j * chunkSize);
-          const chunk = selectedFiles.slice(start, start + chunkSize);
+    setMessage(summarise(selectedFiles, failures));
+    setUploading(false);
 
-          if (chunk.length > 0) {
-            // Upload chunk in parallel (all files in chunk upload together)
-            const chunkPromise = Promise.all(
-              chunk.map(file => uploadSingleFile(file, (progress) => {
-                // Individual file progress can be tracked here if needed
-              }))
-            ).then(chunkResults => {
-              results.push(...chunkResults);
-              setUploadProgress(prev => [...prev, ...chunkResults]);
-              setCurrentlyUploading(results.length);
-              return chunkResults;
-            });
-            chunks.push(chunkPromise);
-          }
+    if (failures.length === 0) {
+      setTimeout(() => {
+        setSelectedFiles([]);
+        setDoneCount(0);
+        setTotalCount(0);
+        document.getElementById('file-input-multiple').value = '';
+        if (document.getElementById('file-input-folder')) {
+          document.getElementById('file-input-folder').value = '';
         }
-
-        // Wait for all parallel chunks to complete before next batch
-        await Promise.all(chunks);
-
-        // Add a small delay between batches to prevent backend memory exhaustion
-        if (i + chunkSize * parallelChunks < selectedFiles.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-
-      const successCount = results.filter(r => r.success).length;
-      const failCount = results.length - successCount;
-
-      // Log failed uploads for debugging
-      if (failCount > 0) {
-        const failedUploads = results.filter(r => !r.success);
-        console.error('Failed uploads:', failedUploads);
-        const firstError = failedUploads[0]?.error || 'Unknown error';
-        setMessage(`Upload failed: ${firstError}. ${successCount} succeeded, ${failCount} failed.`);
-      } else {
-        setMessage(`Upload complete: ${successCount} succeeded. Server processing lossless versions...`);
-      }
-      setUploading(false);
-      setCurrentlyUploading(0);
-
-      // Clear after a delay if all succeeded
-      if (failCount === 0) {
-        setTimeout(() => {
-          setSelectedFiles([]);
-          setUploadProgress([]);
-          document.getElementById('file-input-multiple').value = '';
-          if (document.getElementById('file-input-folder')) {
-            document.getElementById('file-input-folder').value = '';
-          }
-        }, 2000);
-      }
+      }, 2000);
     }
   };
+
+  // Re-run only the files that failed, so a batch of 1000 never has to be
+  // re-selected and re-sent because a handful of them timed out.
+  const handleRetryFailed = async () => {
+    const files = failed.map((f) => f.file);
+    if (files.length === 0) return;
+
+    setUploading(true);
+    setMessage(`Retrying ${files.length} failed image(s)...`);
+
+    const failures = await runBatch(files);
+
+    setMessage(summarise(files, failures));
+    setUploading(false);
+  };
+
 
   const handleClear = () => {
     setSelectedFile(null);
     setSelectedFiles([]);
     setPreview(null);
     setMessage('');
-    setUploadProgress([]);
+    setFailed([]);
+    setDoneCount(0);
+    setTotalCount(0);
+    setCurrentName('');
     if (document.getElementById('file-input')) {
       document.getElementById('file-input').value = '';
     }
@@ -486,25 +540,6 @@ const Upload = () => {
               </div>
             )}
 
-            {/* Multiple Files Upload Progress */}
-            {uploading && uploadMode === 'multiple' && (
-              <div className="upload-progress-container">
-                <div className="progress-info">
-                  <p>Uploading: {currentlyUploading} / {selectedFiles.length}</p>
-                </div>
-                <div className="progress-bar-wrapper">
-                  <div className="progress-bar-bg">
-                    <div
-                      className="progress-bar-fill"
-                      style={{ width: `${(currentlyUploading / selectedFiles.length) * 100}%` }}
-                    ></div>
-                  </div>
-                  <span className="progress-text">
-                    {Math.round((currentlyUploading / selectedFiles.length) * 100)}%
-                  </span>
-                </div>
-              </div>
-            )}
           </>
         )}
 
@@ -542,22 +577,44 @@ const Upload = () => {
           </>
         )}
 
-        {/* Upload Progress */}
-        {uploadMode !== 'single' && uploading && uploadProgress.length > 0 && (
+        {/* Batch progress: overall position, then the current file */}
+        {uploadMode !== 'single' && uploading && totalCount > 0 && (
+          <div className="upload-progress-container">
+            <div className="progress-info">
+              <p>Uploaded {doneCount} of {totalCount}</p>
+              {currentName && <p className="file-types">{currentName} — {singleFileProgress}%</p>}
+            </div>
+            <div className="progress-bar-wrapper">
+              <div className="progress-bar-bg">
+                <div
+                  className="progress-bar-fill"
+                  style={{ width: `${(doneCount / totalCount) * 100}%` }}
+                ></div>
+              </div>
+              <span className="progress-text">
+                {Math.round((doneCount / totalCount) * 100)}%
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Failures, with a retry that re-sends only these files */}
+        {uploadMode !== 'single' && failed.length > 0 && (
           <div className="upload-progress">
-            <p className="progress-header">
-              Uploading {currentlyUploading} of {selectedFiles.length}...
-            </p>
+            <p className="progress-header">{failed.length} failed</p>
             <div className="progress-list">
-              {uploadProgress.map((result, idx) => (
-                <div key={idx} className={`progress-item ${result.success ? 'success' : 'error'}`}>
-                  <span className="progress-filename">{result.filename}</span>
-                  <span className="progress-status">
-                    {result.success ? '✓' : '✗'}
-                  </span>
+              {failed.map((f, idx) => (
+                <div key={idx} className="progress-item error">
+                  <span className="progress-filename">{f.filename}</span>
+                  <span className="progress-status">{f.error}</span>
                 </div>
               ))}
             </div>
+            {!uploading && (
+              <button className="btn btn-secondary" onClick={handleRetryFailed}>
+                Retry {failed.length} failed
+              </button>
+            )}
           </div>
         )}
 
@@ -573,7 +630,7 @@ const Upload = () => {
             onClick={handleUpload}
             disabled={(uploadMode === 'single' ? !selectedFile : selectedFiles.length === 0) || uploading}
           >
-            {uploading ? (uploadMode === 'single' ? 'Uploading...' : `Uploading ${currentlyUploading}/${selectedFiles.length}...`) : 'Upload'}
+            {uploading ? (uploadMode === 'single' ? 'Uploading...' : `Uploading ${doneCount}/${totalCount}...`) : 'Upload'}
           </button>
           {((uploadMode === 'single' && selectedFile) || (uploadMode !== 'single' && selectedFiles.length > 0)) && (
             <button className="btn btn-secondary" onClick={handleClear} disabled={uploading}>
